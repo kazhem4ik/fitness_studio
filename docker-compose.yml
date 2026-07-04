@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  bot_service:
+    build:
+      context: ./bot_service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./bot_service:/app
+      - ./database:/database
+    environment:
+      - PYTHONPATH=/app
+
+  landing_page:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./landing_page:/usr/share/nginx/html:ro
