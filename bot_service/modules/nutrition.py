@@ -3,6 +3,7 @@ import logging
 from sqlalchemy import select
 from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
+from bot_service.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -47,3 +48,35 @@ async def handle_nutrition_request(chat_id: int, bot_token: str):
             logger.info(f"Sent nutrition menu to {chat_id}")
     except Exception as e:
         logger.error(f"Error during nutrition request for {chat_id}: {e}")
+
+async def request_nutrition_consultation(chat_id: int, bot_token: str):
+    url_send_message = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    try:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(User).where(User.telegram_id == str(chat_id)))
+            user = result.scalar_one_or_none()
+            
+            if not user:
+                logger.error(f"User {chat_id} not found when requesting nutrition consultation")
+                return
+                
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                url_send_message,
+                json={
+                    "chat_id": chat_id,
+                    "text": "✅ Ваша заявка на разбор питания принята! Мы свяжемся с вами в ближайшее время для уточнения деталей."
+                }
+            )
+            
+            if settings.ADMIN_CHAT_ID:
+                await client.post(
+                    url_send_message,
+                    json={
+                        "chat_id": settings.ADMIN_CHAT_ID,
+                        "text": f"🍏 Новая заявка на разбор питания!\nКлиент: {user.full_name} (TG ID: {user.telegram_id})"
+                    }
+                )
+    except Exception as e:
+        logger.error(f"Error during nutrition consultation request for {chat_id}: {e}")

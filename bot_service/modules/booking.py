@@ -5,6 +5,7 @@ from sqlalchemy import select
 from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
 from bot_service.models.bookings import Booking
+from bot_service.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -74,5 +75,14 @@ async def confirm_booking(chat_id: int, slot_data: str, bot_token: str):
                     "text": "✅ Отлично! Вы успешно записаны на пробную тренировку. Тренер свяжется с вами для подтверждения деталей."
                 }
             )
+            
+            if settings.ADMIN_CHAT_ID:
+                await client.post(
+                    url_send_message,
+                    json={
+                        "chat_id": settings.ADMIN_CHAT_ID,
+                        "text": f"🔔 Новая запись на пробную тренировку!\nКлиент: {user.full_name} (TG ID: {user.telegram_id})\nВремя: {session_time.strftime('%d.%m.%Y %H:%M')}"
+                    }
+                )
     except Exception as e:
         logger.error(f"Error during booking confirmation for {chat_id}: {e}")

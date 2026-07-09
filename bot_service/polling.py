@@ -8,7 +8,7 @@ from bot_service.models.users import User
 from bot_service.models.bookings import Booking
 from bot_service.models.progress import Progress
 from bot_service.modules.booking import handle_booking_request, confirm_booking
-from bot_service.modules.nutrition import handle_nutrition_request
+from bot_service.modules.nutrition import handle_nutrition_request, request_nutrition_consultation
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,8 @@ async def start_tg_polling(bot_token: str):
                                 await confirm_booking(chat_id, data, bot_token)
                             elif data == "nutrition":
                                 await handle_nutrition_request(chat_id, bot_token)
+                            elif data == "request_nutrition":
+                                await request_nutrition_consultation(chat_id, bot_token)
             except httpx.RequestError as e:
                 logger.error(f"Network error during polling: {e}")
                 await asyncio.sleep(5)
