@@ -6,6 +6,7 @@ from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
 from bot_service.models.bookings import Booking
 from bot_service.models.settings import StudioSettings
+from bot_service.models.daily_schedule import DailySchedule
 from bot_service.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,13 +15,33 @@ async def handle_booking_request(chat_id: int, bot_token: str):
     url_send_message = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     
     try:
-        inline_keyboard = []
         today = datetime.now().date()
-        for i in range(1, 4):  # Next 3 days
+        end_date = today + timedelta(days=14)
+        
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(DailySchedule).where(DailySchedule.date > today, DailySchedule.date <= end_date, DailySchedule.is_day_off == True)
+            )
+            days_off = {do.date for do in result.scalars()}
+            
+        inline_keyboard = []
+        row = []
+        for i in range(1, 15):  # 14 days ahead
             date_obj = today + timedelta(days=i)
             date_str = date_obj.strftime("%Y-%m-%d")
-            display_date = date_obj.strftime("%d.%m.%Y")
-            inline_keyboard.append([{"text": f"📅 {display_date}", "callback_data": f"date_{date_str}"}])
+            display_date = date_obj.strftime("%d.%m")
+            
+            if date_obj in days_off:
+                btn = {"text": f"❌ {display_date}", "callback_data": "day_off"}
+            else:
+                btn = {"text": f"📅 {display_date}", "callback_data": f"date_{date_str}"}
+                
+            row.append(btn)
+            if len(row) == 2:
+                inline_keyboard.append(row)
+                row = []
+        if row:
+            inline_keyboard.append(row)
             
         keyboard = {"inline_keyboard": inline_keyboard}
 
@@ -29,7 +50,7 @@ async def handle_booking_request(chat_id: int, bot_token: str):
                 url_send_message,
                 json={
                     "chat_id": chat_id,
-                    "text": "Выберите дату для пробной тренировки:",
+                    "text": "Выберите дату для пробной тренировки (на ближайшие 2 недели):",
                     "reply_markup": keyboard
                 }
             )
@@ -55,8 +76,10 @@ async def handle_booking_slots(chat_id: int, date_str: str, bot_token: str):
                 logger.error("StudioSettings not found in database")
                 return
                 
-            work_days = [int(d.strip()) for d in studio_settings.work_days.split(",") if d.strip().isdigit()]
-            if target_date.weekday() not in work_days:
+            result_day = await session.execute(select(DailySchedule).where(DailySchedule.date == target_date))
+            day_schedule = result_day.scalar_one_or_none()
+            
+            if day_schedule and day_schedule.is_day_off:
                 async with httpx.AsyncClient() as client:
                     await client.post(
                         url_send_message,
@@ -75,25 +98,52 @@ async def handle_booking_slots(chat_id: int, date_str: str, bot_token: str):
             )
             booked_times = [b.session_start for b in result.scalars()]
             
-            open_time = datetime.strptime(studio_settings.open_time, "%H:%M").time()
-            close_time = datetime.strptime(studio_settings.close_time, "%H:%M").time()
-            lunch_start = datetime.strptime(studio_settings.lunch_start, "%H:%M").time()
-            lunch_end = datetime.strptime(studio_settings.lunch_end, "%H:%M").time()
+            open_time_str = day_schedule.open_time if day_schedule and day_schedule.open_time else studio_settings.open_time
+            close_time_str = day_schedule.close_time if day_schedule and day_schedule.close_time else studio_settings.close_time
+            slot_duration_val = day_schedule.slot_duration if day_schedule and day_schedule.slot_duration else studio_settings.slot_duration
+            
+            open_time = datetime.strptime(open_time_str, "%H:%M").time()
+            close_time = datetime.strptime(close_time_str, "%H:%M").time()
             
             current_dt = datetime.combine(target_date, open_time)
             close_dt = datetime.combine(target_date, close_time)
-            lunch_start_dt = datetime.combine(target_date, lunch_start)
-            lunch_end_dt = datetime.combine(target_date, lunch_end)
+            
+            parsed_custom_breaks = []
+            breaks_str = ""
+            if day_schedule and day_schedule.custom_breaks is not None:
+                breaks_str = day_schedule.custom_breaks
+            elif studio_settings and studio_settings.custom_breaks is not None:
+                breaks_str = studio_settings.custom_breaks
+                
+            if breaks_str:
+                for br in breaks_str.split(","):
+                    br = br.strip()
+                    if "-" in br:
+                        try:
+                            start_str, end_str = br.split("-")
+                            b_start = datetime.strptime(start_str.strip(), "%H:%M").time()
+                            b_end = datetime.strptime(end_str.strip(), "%H:%M").time()
+                            parsed_custom_breaks.append((
+                                datetime.combine(target_date, b_start),
+                                datetime.combine(target_date, b_end)
+                            ))
+                        except Exception as e:
+                            logger.error(f"Failed to parse custom break '{br}': {e}")
             
             available_slots = []
-            slot_delta = timedelta(minutes=studio_settings.slot_duration)
+            slot_delta = timedelta(minutes=slot_duration_val)
             
             while current_dt + slot_delta <= close_dt:
                 slot_end = current_dt + slot_delta
                 
-                # Check for lunch overlap
-                if current_dt < lunch_end_dt and slot_end > lunch_start_dt:
-                    current_dt = lunch_end_dt
+                # Check custom breaks overlap
+                overlap_break = False
+                for b_start, b_end in parsed_custom_breaks:
+                    if current_dt < b_end and slot_end > b_start:
+                        current_dt = b_end
+                        overlap_break = True
+                        break
+                if overlap_break:
                     continue
                     
                 # Check against bookings

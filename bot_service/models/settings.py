@@ -10,3 +10,4 @@ class StudioSettings(Base):
     slot_duration = Column(Integer, default=75)
     lunch_start = Column(String, default="14:00")
     lunch_end = Column(String, default="15:00")
+    custom_breaks = Column(String, nullable=True)

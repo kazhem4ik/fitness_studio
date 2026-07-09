@@ -12,7 +12,7 @@ from bot_service.models.users import User
 from bot_service.models.bookings import Booking
 from bot_service.models.progress import Progress
 from bot_service.models.settings import StudioSettings
-from bot_service.models.days_off import DayOff
+from bot_service.models.daily_schedule import DailySchedule
 
 async def init_models():
     async with engine.begin() as conn:

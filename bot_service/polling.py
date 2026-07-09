@@ -110,14 +110,105 @@ async def start_tg_polling(bot_token: str):
                                 await request_nutrition_consultation(chat_id, bot_token)
                             elif data == "admin_panel":
                                 await send_admin_panel(chat_id, bot_token)
-                            elif data.startswith("edit_"):
+                            elif data.startswith("edit_day_") and data.count("_") == 3 and "-" in data:
+                                parts = data.split("_")
+                                week_offset = int(parts[2])
+                                date_str = parts[3]
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_day_settings
+                                await send_day_settings(chat_id, week_offset, date_str, bot_token, message_id)
+                            elif data.startswith("edit_") or data.startswith("add_break_"):
                                 await handle_admin_callback(chat_id, data, bot_token)
                             elif data.startswith("admin_cal_"):
                                 week_offset = int(data.split("_")[2])
                                 message_id = callback_query["message"]["message_id"]
                                 from bot_service.modules.admin import send_admin_calendar
                                 await send_admin_calendar(chat_id, week_offset, bot_token, message_id)
-                            elif data.startswith("toggle_off_"):
+                            elif data.startswith("day_time_menu_"):
+                                parts = data.split("_")
+                                week_offset = int(parts[3])
+                                date_str = parts[4]
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_day_time_menu
+                                await send_day_time_menu(chat_id, week_offset, date_str, bot_token, message_id)
+                            elif data.startswith("admin_bookings_cal_"):
+                                week_offset = int(data.split("_")[3])
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_admin_bookings_calendar
+                                await send_admin_bookings_calendar(chat_id, week_offset, bot_token, message_id)
+                            elif data.startswith("view_day_bookings_"):
+                                date_str = data.split("_")[3]
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_day_bookings
+                                await send_day_bookings(chat_id, date_str, bot_token, message_id)
+                            elif data.startswith("manage_breaks_global"):
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_breaks_menu
+                                await send_breaks_menu(chat_id, bot_token, message_id=message_id)
+                            elif data.startswith("manage_breaks_day_"):
+                                date_str = data.split("_")[3]
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_breaks_menu
+                                await send_breaks_menu(chat_id, bot_token, date_str=date_str, message_id=message_id)
+                            elif data.startswith("del_break_"):
+                                parts = data.split("_")
+                                if parts[2] == "global":
+                                    idx = int(parts[3])
+                                    date_str = None
+                                else:
+                                    date_str = parts[3]
+                                    idx = int(parts[4])
+                                
+                                async with AsyncSessionLocal() as session:
+                                    if date_str:
+                                        from bot_service.models.daily_schedule import DailySchedule
+                                        from sqlalchemy import select
+                                        from datetime import datetime
+                                        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                                        result = await session.execute(select(DailySchedule).where(DailySchedule.date == target_date))
+                                        record = result.scalar_one_or_none()
+                                    else:
+                                        from bot_service.models.settings import StudioSettings
+                                        from sqlalchemy import select
+                                        result = await session.execute(select(StudioSettings).where(StudioSettings.id == 1))
+                                        record = result.scalar_one_or_none()
+                                        
+                                    if record and record.custom_breaks:
+                                        breaks = [b.strip() for b in record.custom_breaks.split(",") if b.strip()]
+                                        if 0 <= idx < len(breaks):
+                                            breaks.pop(idx)
+                                            record.custom_breaks = ", ".join(breaks)
+                                            await session.commit()
+                                            
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_breaks_menu
+                                await send_breaks_menu(chat_id, bot_token, date_str=date_str, message_id=message_id)
+                            elif data.startswith("view_booking_"):
+                                booking_id = int(data.split("_")[2])
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_booking_details
+                                await send_booking_details(chat_id, booking_id, bot_token, message_id)
+                            elif data.startswith("toggle_day_off_"):
+                                parts = data.split("_")
+                                week_offset = int(parts[3])
+                                date_str = parts[4]
+                                from datetime import datetime
+                                target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                                
+                                async with AsyncSessionLocal() as session:
+                                    from bot_service.models.daily_schedule import DailySchedule
+                                    result = await session.execute(select(DailySchedule).where(DailySchedule.date == target_date))
+                                    day_schedule = result.scalar_one_or_none()
+                                    if day_schedule:
+                                        day_schedule.is_day_off = not day_schedule.is_day_off
+                                    else:
+                                        session.add(DailySchedule(date=target_date, is_day_off=True))
+                                    await session.commit()
+                                
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_day_settings
+                                await send_day_settings(chat_id, week_offset, date_str, bot_token, message_id)
+                            elif data.startswith("reset_day_"):
                                 parts = data.split("_")
                                 week_offset = int(parts[2])
                                 date_str = parts[3]
@@ -125,18 +216,16 @@ async def start_tg_polling(bot_token: str):
                                 target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                                 
                                 async with AsyncSessionLocal() as session:
-                                    from bot_service.models.days_off import DayOff
-                                    result = await session.execute(select(DayOff).where(DayOff.date == target_date))
-                                    day_off = result.scalar_one_or_none()
-                                    if day_off:
-                                        await session.delete(day_off)
-                                    else:
-                                        session.add(DayOff(date=target_date))
-                                    await session.commit()
+                                    from bot_service.models.daily_schedule import DailySchedule
+                                    result = await session.execute(select(DailySchedule).where(DailySchedule.date == target_date))
+                                    day_schedule = result.scalar_one_or_none()
+                                    if day_schedule:
+                                        await session.delete(day_schedule)
+                                        await session.commit()
                                 
                                 message_id = callback_query["message"]["message_id"]
-                                from bot_service.modules.admin import send_admin_calendar
-                                await send_admin_calendar(chat_id, week_offset, bot_token, message_id)
+                                from bot_service.modules.admin import send_day_settings
+                                await send_day_settings(chat_id, week_offset, date_str, bot_token, message_id)
             except httpx.RequestError as e:
                 logger.error(f"Network error during polling: {e}")
                 await asyncio.sleep(5)
