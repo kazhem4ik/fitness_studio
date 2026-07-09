@@ -7,8 +7,10 @@ from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
 from bot_service.models.bookings import Booking
 from bot_service.models.progress import Progress
-from bot_service.modules.booking import handle_booking_request, confirm_booking
+from bot_service.modules.booking import handle_booking_request, handle_booking_slots, confirm_booking
 from bot_service.modules.nutrition import handle_nutrition_request, request_nutrition_consultation
+from bot_service.modules.admin import handle_admin_text, send_admin_panel, handle_admin_callback
+from bot_service.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -56,21 +58,27 @@ async def start_tg_polling(bot_token: str):
                                 except Exception as db_err:
                                     logger.error(f"Database error during user registration: {db_err}")
 
-                                keyboard = {
-                                    "inline_keyboard": [
-                                        [{"text": "📅 Записаться на тренировку", "callback_data": "book_session"}],
-                                        [{"text": "🍏 Мое питание", "callback_data": "nutrition"}]
-                                    ]
-                                }
+                                inline_keyboard = [
+                                    [{"text": "📅 Записаться на тренировку", "callback_data": "book_session"}],
+                                    [{"text": "🍏 Мое питание", "callback_data": "nutrition"}]
+                                ]
+                                
+                                if str(chat_id) == settings.ADMIN_CHAT_ID:
+                                    inline_keyboard.append([{"text": "⚙️ Настройки студии", "callback_data": "admin_panel"}])
+                                    
+                                keyboard = {"inline_keyboard": inline_keyboard}
+                                
                                 await client.post(
                                     url_send_message,
                                     json={
                                         "chat_id": chat_id,
-                                        "text": "Привет! Добро пожаловать в нашу фитнес-студию. Выберите время для пробной тренировки.",
+                                        "text": "Привет! Добро пожаловать в нашу фитнес-студию. Выберите нужный раздел.",
                                         "reply_markup": keyboard
                                     }
                                 )
                                 logger.info(f"Sent /start response to {chat_id}")
+                            else:
+                                await handle_admin_text(chat_id, text, bot_token)
                         elif "callback_query" in update:
                             callback_query = update["callback_query"]
                             cq_id = callback_query["id"]
@@ -91,6 +99,10 @@ async def start_tg_polling(bot_token: str):
                                 await handle_nutrition_request(chat_id, bot_token)
                             elif data == "request_nutrition":
                                 await request_nutrition_consultation(chat_id, bot_token)
+                            elif data == "admin_panel":
+                                await send_admin_panel(chat_id, bot_token)
+                            elif data.startswith("edit_"):
+                                await handle_admin_callback(chat_id, data, bot_token)
             except httpx.RequestError as e:
                 logger.error(f"Network error during polling: {e}")
                 await asyncio.sleep(5)
