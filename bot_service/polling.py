@@ -2,6 +2,12 @@ import asyncio
 import httpx
 import logging
 
+from sqlalchemy import select
+from bot_service.core.database import AsyncSessionLocal
+from bot_service.models.users import User
+from bot_service.models.bookings import Booking
+from bot_service.models.progress import Progress
+
 logger = logging.getLogger(__name__)
 
 async def start_tg_polling(bot_token: str):
@@ -34,6 +40,20 @@ async def start_tg_polling(bot_token: str):
                             chat_id = message["chat"]["id"]
                             
                             if text == "/start":
+                                try:
+                                    async with AsyncSessionLocal() as session:
+                                        result = await session.execute(select(User).where(User.telegram_id == str(chat_id)))
+                                        user = result.scalar_one_or_none()
+                                        
+                                        if not user:
+                                            first_name = message.get("from", {}).get("first_name", "Клиент")
+                                            new_user = User(telegram_id=str(chat_id), full_name=first_name)
+                                            session.add(new_user)
+                                            await session.commit()
+                                            logger.info(f"Registered new user: {chat_id} ({first_name})")
+                                except Exception as db_err:
+                                    logger.error(f"Database error during user registration: {db_err}")
+
                                 await client.post(
                                     url_send_message,
                                     json={
