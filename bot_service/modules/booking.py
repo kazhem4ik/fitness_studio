@@ -1,6 +1,6 @@
 import httpx
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from sqlalchemy import select
 from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
@@ -12,29 +12,48 @@ logger = logging.getLogger(__name__)
 async def handle_booking_request(chat_id: int, bot_token: str):
     url_send_message = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     
-    keyboard = {
-        "inline_keyboard": [
-            [
-                {"text": "Завтра 18:00", "callback_data": "slot_1"},
-                {"text": "Завтра 19:00", "callback_data": "slot_2"}
-            ]
-        ]
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url_send_message,
-                json={
-                    "chat_id": chat_id,
-                    "text": "Выберите доступное время для пробной тренировки:",
-                    "reply_markup": keyboard
-                }
+    try:
+        async with AsyncSessionLocal() as session:
+            tomorrow = datetime.now().date() + timedelta(days=1)
+            start_of_day = datetime.combine(tomorrow, time.min)
+            end_of_day = datetime.combine(tomorrow, time.max)
+            
+            result = await session.execute(
+                select(Booking).where(Booking.session_start >= start_of_day, Booking.session_start <= end_of_day)
             )
+            booked_times = {b.session_start.hour for b in result.scalars()}
+            
+            available_hours = [h for h in range(10, 21) if h not in booked_times]
+            
+            if not available_hours:
+                text = "К сожалению, на завтра все окна заняты. Попробуйте проверить позже."
+                keyboard = None
+            else:
+                text = "Доступные окна на завтра:"
+                inline_keyboard = []
+                row = []
+                for h in available_hours:
+                    row.append({"text": f"Завтра {h}:00", "callback_data": f"slot_{h}:00"})
+                    if len(row) == 2:  # группируем по 2 кнопки
+                        inline_keyboard.append(row)
+                        row = []
+                if row:
+                    inline_keyboard.append(row)
+                keyboard = {"inline_keyboard": inline_keyboard}
+
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "chat_id": chat_id,
+                "text": text
+            }
+            if keyboard:
+                payload["reply_markup"] = keyboard
+                
+            response = await client.post(url_send_message, json=payload)
             response.raise_for_status()
             logger.info(f"Sent booking options to {chat_id}")
-        except Exception as e:
-            logger.error(f"Failed to send booking options to {chat_id}: {e}")
+    except Exception as e:
+        logger.error(f"Failed to send booking options to {chat_id}: {e}")
 
 async def confirm_booking(chat_id: int, slot_data: str, bot_token: str):
     url_send_message = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -48,13 +67,27 @@ async def confirm_booking(chat_id: int, slot_data: str, bot_token: str):
                 logger.error(f"User {chat_id} not found when confirming booking")
                 return
             
-            now = datetime.now()
-            if slot_data == "slot_1":
-                session_time = now.replace(hour=18, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            elif slot_data == "slot_2":
-                session_time = now.replace(hour=19, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            else:
-                logger.error(f"Unknown slot data: {slot_data}")
+            try:
+                hour = int(slot_data.split("_")[1].split(":")[0])
+            except (IndexError, ValueError):
+                logger.error(f"Invalid slot data format: {slot_data}")
+                return
+                
+            tomorrow = datetime.now().date() + timedelta(days=1)
+            session_time = datetime.combine(tomorrow, time(hour=hour))
+            
+            existing_booking = await session.execute(
+                select(Booking).where(Booking.session_start == session_time)
+            )
+            if existing_booking.scalar_one_or_none():
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        url_send_message,
+                        json={
+                            "chat_id": chat_id,
+                            "text": "Упс! Это время только что заняли. Пожалуйста, выберите другое."
+                        }
+                    )
                 return
                 
             new_booking = Booking(
