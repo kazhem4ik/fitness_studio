@@ -7,6 +7,7 @@ from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
 from bot_service.models.bookings import Booking
 from bot_service.models.progress import Progress
+from bot_service.modules.booking import handle_booking_request
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +55,35 @@ async def start_tg_polling(bot_token: str):
                                 except Exception as db_err:
                                     logger.error(f"Database error during user registration: {db_err}")
 
+                                keyboard = {
+                                    "inline_keyboard": [
+                                        [{"text": "📅 Записаться на тренировку", "callback_data": "book_session"}],
+                                        [{"text": "🍏 Мое питание", "callback_data": "nutrition"}]
+                                    ]
+                                }
                                 await client.post(
                                     url_send_message,
                                     json={
                                         "chat_id": chat_id,
-                                        "text": "Привет! Добро пожаловать в нашу фитнес-студию. Выберите время для пробной тренировки."
+                                        "text": "Привет! Добро пожаловать в нашу фитнес-студию. Выберите время для пробной тренировки.",
+                                        "reply_markup": keyboard
                                     }
                                 )
                                 logger.info(f"Sent /start response to {chat_id}")
+                        elif "callback_query" in update:
+                            callback_query = update["callback_query"]
+                            cq_id = callback_query["id"]
+                            data = callback_query["data"]
+                            chat_id = callback_query["message"]["chat"]["id"]
+                            
+                            url_answer_callback = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                            await client.post(
+                                url_answer_callback,
+                                json={"callback_query_id": cq_id}
+                            )
+                            
+                            if data == "book_session":
+                                await handle_booking_request(chat_id, bot_token)
             except httpx.RequestError as e:
                 logger.error(f"Network error during polling: {e}")
                 await asyncio.sleep(5)
