@@ -93,6 +93,15 @@ async def start_tg_polling(bot_token: str):
                             
                             if data == "book_session":
                                 await handle_booking_request(chat_id, bot_token)
+                            elif data == "day_off":
+                                url_answer_callback = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                                await client.post(
+                                    url_answer_callback,
+                                    json={"callback_query_id": cq_id, "text": "В этот день студия не работает.", "show_alert": True}
+                                )
+                            elif data.startswith("date_"):
+                                date_str = data.split("_")[1]
+                                await handle_booking_slots(chat_id, date_str, bot_token)
                             elif data.startswith("slot_"):
                                 await confirm_booking(chat_id, data, bot_token)
                             elif data == "nutrition":
@@ -103,6 +112,31 @@ async def start_tg_polling(bot_token: str):
                                 await send_admin_panel(chat_id, bot_token)
                             elif data.startswith("edit_"):
                                 await handle_admin_callback(chat_id, data, bot_token)
+                            elif data.startswith("admin_cal_"):
+                                week_offset = int(data.split("_")[2])
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_admin_calendar
+                                await send_admin_calendar(chat_id, week_offset, bot_token, message_id)
+                            elif data.startswith("toggle_off_"):
+                                parts = data.split("_")
+                                week_offset = int(parts[2])
+                                date_str = parts[3]
+                                from datetime import datetime
+                                target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                                
+                                async with AsyncSessionLocal() as session:
+                                    from bot_service.models.days_off import DayOff
+                                    result = await session.execute(select(DayOff).where(DayOff.date == target_date))
+                                    day_off = result.scalar_one_or_none()
+                                    if day_off:
+                                        await session.delete(day_off)
+                                    else:
+                                        session.add(DayOff(date=target_date))
+                                    await session.commit()
+                                
+                                message_id = callback_query["message"]["message_id"]
+                                from bot_service.modules.admin import send_admin_calendar
+                                await send_admin_calendar(chat_id, week_offset, bot_token, message_id)
             except httpx.RequestError as e:
                 logger.error(f"Network error during polling: {e}")
                 await asyncio.sleep(5)
