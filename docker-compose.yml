@@ -13,9 +13,27 @@ services:
     environment:
       - PYTHONPATH=/app
 
-  landing_page:
+  planner_service:
+    build:
+      context: ./planner_service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./planner_service:/app
+      - ./database:/database
+    environment:
+      - PYTHONPATH=/app
+    env_file:
+      - .env
+
+  nginx:
     image: nginx:alpine
     ports:
       - "80:80"
     volumes:
-      - ./landing_page:/usr/share/nginx/html:ro
+      - ./landing_page:/usr/share/nginx/html/landing:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - bot_service
+      - planner_service
