@@ -1,7 +1,7 @@
 import httpx
 import logging
 from datetime import datetime, timedelta, time
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from bot_service.core.database import AsyncSessionLocal
 from bot_service.models.users import User
 from bot_service.models.bookings import Booking
@@ -10,6 +10,57 @@ from bot_service.models.daily_schedule import DailySchedule
 from bot_service.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _build_booking_windows(booked_times: list, slot_duration: int, buffer_before: int, buffer_after: int) -> list:
+    """
+    По списку session_start строим список занятых «окон брони»:
+    каждое окно = [start - buffer_before, start + slot_duration + buffer_after].
+    Возвращаем список кортежей (window_start, window_end) как datetime.
+    """
+    windows = []
+    full_window = timedelta(minutes=slot_duration + buffer_after)
+    buf_before = timedelta(minutes=buffer_before)
+    for b_time in booked_times:
+        window_start = b_time - buf_before
+        window_end = b_time + full_window
+        windows.append((window_start, window_end))
+    return windows
+
+
+def _slot_is_free(candidate_start: datetime, slot_duration: int, buffer_before: int, buffer_after: int,
+                  occupied_windows: list, custom_breaks: list, close_dt: datetime) -> bool:
+    """
+    Проверяет, доступен ли слот candidate_start.
+    Условия:
+    1. Окно кандидата [candidate_start - buffer_before, candidate_start + slot_duration + buffer_after]
+       не пересекается ни с одним occupied_window.
+    2. Само тело тренировки [candidate_start, candidate_start + slot_duration] не перекрывает перерывы.
+    3. Тренировка заканчивается не позже close_dt.
+    """
+    buf_before = timedelta(minutes=buffer_before)
+    full_window = timedelta(minutes=slot_duration + buffer_after)
+    
+    cand_window_start = candidate_start - buf_before
+    cand_window_end = candidate_start + full_window
+    
+    # Проверка: тренировка не выходит за время закрытия
+    if candidate_start + timedelta(minutes=slot_duration) > close_dt:
+        return False
+    
+    # Проверка пересечения с занятыми окнами
+    for win_start, win_end in occupied_windows:
+        if cand_window_start < win_end and cand_window_end > win_start:
+            return False
+    
+    # Проверка пересечения с перерывами (обед и custom)
+    training_start = candidate_start
+    training_end = candidate_start + timedelta(minutes=slot_duration)
+    for b_start, b_end in custom_breaks:
+        if training_start < b_end and training_end > b_start:
+            return False
+    
+    return True
 
 async def handle_booking_request(chat_id: int, bot_token: str):
     url_send_message = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -94,20 +145,25 @@ async def handle_booking_slots(chat_id: int, date_str: str, bot_token: str):
             end_of_day = datetime.combine(target_date, time.max)
             
             result = await session.execute(
-                select(Booking).where(Booking.session_start >= start_of_day, Booking.session_start <= end_of_day)
+                select(Booking).where(
+                    and_(Booking.session_start >= start_of_day, Booking.session_start <= end_of_day)
+                )
             )
             booked_times = [b.session_start for b in result.scalars()]
             
             open_time_str = day_schedule.open_time if day_schedule and day_schedule.open_time else studio_settings.open_time
             close_time_str = day_schedule.close_time if day_schedule and day_schedule.close_time else studio_settings.close_time
             slot_duration_val = day_schedule.slot_duration if day_schedule and day_schedule.slot_duration else studio_settings.slot_duration
+            buffer_before_val = getattr(studio_settings, 'buffer_before', 10)
+            buffer_after_val = getattr(studio_settings, 'buffer_after', 20)
             
-            open_time = datetime.strptime(open_time_str, "%H:%M").time()
-            close_time = datetime.strptime(close_time_str, "%H:%M").time()
+            open_time_obj = datetime.strptime(open_time_str, "%H:%M").time()
+            close_time_obj = datetime.strptime(close_time_str, "%H:%M").time()
             
-            current_dt = datetime.combine(target_date, open_time)
-            close_dt = datetime.combine(target_date, close_time)
+            current_dt = datetime.combine(target_date, open_time_obj)
+            close_dt = datetime.combine(target_date, close_time_obj)
             
+            # Парсим перерывы (обед и custom)
             parsed_custom_breaks = []
             breaks_str = ""
             if day_schedule and day_schedule.custom_breaks is not None:
@@ -130,33 +186,22 @@ async def handle_booking_slots(chat_id: int, date_str: str, bot_token: str):
                         except Exception as e:
                             logger.error(f"Failed to parse custom break '{br}': {e}")
             
-            available_slots = []
-            slot_delta = timedelta(minutes=slot_duration_val)
+            # Строим занятые «окна брони» для всех существующих записей
+            occupied_windows = _build_booking_windows(
+                booked_times, slot_duration_val, buffer_before_val, buffer_after_val
+            )
             
-            while current_dt + slot_delta <= close_dt:
-                slot_end = current_dt + slot_delta
-                
-                # Check custom breaks overlap
-                overlap_break = False
-                for b_start, b_end in parsed_custom_breaks:
-                    if current_dt < b_end and slot_end > b_start:
-                        current_dt = b_end
-                        overlap_break = True
-                        break
-                if overlap_break:
-                    continue
-                    
-                # Check against bookings
-                is_booked = False
-                for b_time in booked_times:
-                    if current_dt <= b_time < slot_end or current_dt < b_time + slot_delta <= slot_end:
-                        is_booked = True
-                        break
-                        
-                if not is_booked:
+            # Шаг перебора = buffer_before + buffer_after (минимальный перерыв между тренировками)
+            step = timedelta(minutes=buffer_before_val + buffer_after_val)
+            
+            available_slots = []
+            while current_dt <= close_dt:
+                if _slot_is_free(
+                    current_dt, slot_duration_val, buffer_before_val, buffer_after_val,
+                    occupied_windows, parsed_custom_breaks, close_dt
+                ):
                     available_slots.append(current_dt)
-                    
-                current_dt = slot_end
+                current_dt += step
                 
             if not available_slots:
                 text = f"К сожалению, на {target_date.strftime('%d.%m.%Y')} все окна заняты. Попробуйте выбрать другую дату."
@@ -213,10 +258,38 @@ async def confirm_booking(chat_id: int, slot_data: str, bot_token: str):
                 logger.error(f"Invalid slot data format '{slot_data}': {e}")
                 return
             
-            existing_booking = await session.execute(
-                select(Booking).where(Booking.session_start == session_time)
+            # Читаем настройки буферов для race-condition защиты
+            settings_result = await session.execute(select(StudioSettings).where(StudioSettings.id == 1))
+            studio_settings = settings_result.scalar_one_or_none()
+            buffer_before_val = getattr(studio_settings, 'buffer_before', 10) if studio_settings else 10
+            buffer_after_val = getattr(studio_settings, 'buffer_after', 20) if studio_settings else 20
+            slot_duration_val = getattr(studio_settings, 'slot_duration', 60) if studio_settings else 60
+
+            # Проверяем пересечение полного окна брони (защита от гонок)
+            start_of_day = datetime.combine(target_date, time.min)
+            end_of_day = datetime.combine(target_date, time.max)
+            existing_result = await session.execute(
+                select(Booking).where(
+                    and_(Booking.session_start >= start_of_day, Booking.session_start <= end_of_day)
+                )
             )
-            if existing_booking.scalar_one_or_none():
+            existing_times = [b.session_start for b in existing_result.scalars()]
+            occupied_windows = _build_booking_windows(
+                existing_times, slot_duration_val, buffer_before_val, buffer_after_val
+            )
+            
+            # Новое окно кандидата
+            buf_before_td = timedelta(minutes=buffer_before_val)
+            full_window_td = timedelta(minutes=slot_duration_val + buffer_after_val)
+            new_win_start = session_time - buf_before_td
+            new_win_end = session_time + full_window_td
+            
+            conflict = any(
+                new_win_start < win_end and new_win_end > win_start
+                for win_start, win_end in occupied_windows
+            )
+            
+            if conflict:
                 async with httpx.AsyncClient() as client:
                     await client.post(
                         url_send_message,

@@ -1,4 +1,4 @@
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from planner_service.core.config import settings
 from planner_service.core.database import get_db
 from planner_service.core.security import decode_access_token
 from planner_service.models.appointment import Appointment
@@ -13,6 +14,47 @@ from planner_service.models.appointment import Appointment
 router = APIRouter(prefix="/api/appointments", tags=["appointments"])
 
 COOKIE_NAME = "planner_token"
+
+
+async def check_buffer_conflict(
+    db: AsyncSession,
+    appt_date: date,
+    appt_time_start: time,
+    appt_time_end: time,
+    exclude_id: Optional[int] = None,
+) -> Optional[str]:
+    """
+    Проверяет, не пересекается ли окно брони новой записи с существующими.
+    Окно = [time_start - buffer_before, time_end + buffer_after].
+    Возвращает None если конфликта нет, или строку с ближайшим свободным временем если конфликт есть.
+    """
+    buf_before = timedelta(minutes=settings.BUFFER_BEFORE)
+    buf_after = timedelta(minutes=settings.BUFFER_AFTER)
+
+    # Окно новой записи
+    new_win_start = datetime.combine(appt_date, appt_time_start) - buf_before
+    new_win_end = datetime.combine(appt_date, appt_time_end) + buf_after
+
+    query = select(Appointment).where(
+        and_(
+            Appointment.date == appt_date,
+            Appointment.is_cancelled == False,
+        )
+    )
+    if exclude_id:
+        query = query.where(Appointment.id != exclude_id)
+
+    result = await db.execute(query)
+    existing = result.scalars().all()
+
+    for appt in existing:
+        win_start = datetime.combine(appt.date, appt.time_start) - buf_before
+        win_end = datetime.combine(appt.date, appt.time_end) + buf_after
+        if new_win_start < win_end and new_win_end > win_start:
+            # Находим ближайшее свободное время
+            earliest = (datetime.combine(appt.date, appt.time_end) + buf_after + buf_before)
+            return earliest.strftime("%H:%M")
+    return None
 
 
 # --- Auth dependency ---
@@ -114,6 +156,13 @@ async def create_appointment(
     _auth: dict = Depends(require_auth),
 ):
     """Создать новую запись клиента."""
+    # Проверка буфера времени
+    conflict_time = await check_buffer_conflict(db, data.date, data.time_start, data.time_end)
+    if conflict_time:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Конфликт времени. С учётом перерыва между занятиями ближайшее доступное время: {conflict_time}"
+        )
     appointment = Appointment(**data.model_dump())
     db.add(appointment)
     await db.commit()
@@ -164,6 +213,21 @@ async def update_appointment(
         raise HTTPException(status_code=404, detail="Запись не найдена")
 
     update_data = data.model_dump(exclude_unset=True)
+    
+    # Если меняется время — проверяем буфер
+    new_date = update_data.get("date", appointment.date)
+    new_time_start = update_data.get("time_start", appointment.time_start)
+    new_time_end = update_data.get("time_end", appointment.time_end)
+    if "date" in update_data or "time_start" in update_data or "time_end" in update_data:
+        conflict_time = await check_buffer_conflict(
+            db, new_date, new_time_start, new_time_end, exclude_id=appointment_id
+        )
+        if conflict_time:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Конфликт времени. С учётом перерыва между занятиями ближайшее доступное время: {conflict_time}"
+            )
+
     for key, value in update_data.items():
         setattr(appointment, key, value)
 

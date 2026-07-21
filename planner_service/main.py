@@ -10,7 +10,8 @@ from planner_service.core.config import settings
 from planner_service.core.database import init_db
 from planner_service.api.auth import router as auth_router
 from planner_service.api.appointments import router as appointments_router
-
+from planner_service.api.clients import router as clients_router
+from planner_service.api.finances import router as finances_router
 # Абсолютный путь к директории static
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -39,6 +40,8 @@ app = FastAPI(
 # API routes — под /clients/api/
 app.include_router(auth_router, prefix="/clients")
 app.include_router(appointments_router, prefix="/clients")
+app.include_router(clients_router, prefix="/clients")
+app.include_router(finances_router, prefix="/clients")
 
 # Статические файлы PWA — под /clients/static/
 app.mount("/clients/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -51,6 +54,8 @@ app.mount("/clients/static", StaticFiles(directory=str(STATIC_DIR)), name="stati
 @app.get("/clients/day")
 @app.get("/clients/week")
 @app.get("/clients/month")
+@app.get("/clients/clients")
+@app.get("/clients/finances")
 async def serve_spa():
     """SPA — всегда отдаём index.html, роутинг на клиенте."""
     return FileResponse(STATIC_DIR / "index.html")

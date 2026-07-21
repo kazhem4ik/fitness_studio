@@ -122,7 +122,12 @@ const Appointments = {
             this.closeModal();
             Calendar.render();
         } catch (err) {
-            showToast('❌ ' + err.message);
+            // Если ошибка пришла от сервера, она может быть объектом
+            if (err.detail) {
+                alert('Ошибка: ' + err.detail);
+            } else {
+                showToast('❌ ' + err.message);
+            }
         }
     },
 

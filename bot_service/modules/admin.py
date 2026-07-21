@@ -13,7 +13,9 @@ admin_states = {}
 PROMPTS = {
     "open_time": "Введите время открытия студии в формате ЧЧ:ММ (например, 10:00):",
     "close_time": "Введите время закрытия студии в формате ЧЧ:ММ (например, 20:00):",
-    "slot_duration": "Введите длительность в минутах (например, 75):",
+    "slot_duration": "Введите длительность тренировки в минутах (например, 60):",
+    "buffer_before": "Введите буфер ДО тренировки в минутах (например, 10):",
+    "buffer_after": "Введите буфер ПОСЛЕ тренировки в минутах (например, 20):",
     "add_break": "Введите временной интервал перерыва в формате ЧЧ:ММ-ЧЧ:ММ (например, 16:00-16:30):"
 }
 
@@ -34,7 +36,9 @@ async def send_admin_panel(chat_id: int, bot_token: str):
                 "⚙️ *Настройки студии*\n\n"
                 f"Открытие: {studio_settings.open_time}\n"
                 f"Закрытие: {studio_settings.close_time}\n"
-                f"Длительность слота (мин): {studio_settings.slot_duration}\n"
+                f"Длительность тренировки (мин): {getattr(studio_settings, 'slot_duration', 60)}\n"
+                f"Буфер до (мин): {getattr(studio_settings, 'buffer_before', 10)}\n"
+                f"Буфер после (мин): {getattr(studio_settings, 'buffer_after', 20)}\n"
                 f"Перерывы: {custom_breaks_str}\n\n"
                 "Выберите параметр для редактирования:"
             )
@@ -43,6 +47,7 @@ async def send_admin_panel(chat_id: int, bot_token: str):
                 "inline_keyboard": [
                     [{"text": "🌅 Открытие", "callback_data": "edit_open_time"}, {"text": "🌃 Закрытие", "callback_data": "edit_close_time"}],
                     [{"text": "⏱ Длительность", "callback_data": "edit_slot_duration"}],
+                    [{"text": "⏳ Буфер до", "callback_data": "edit_buffer_before"}, {"text": "⏳ Буфер после", "callback_data": "edit_buffer_after"}],
                     [{"text": "⏸ Перерывы", "callback_data": "manage_breaks_global"}],
                     [{"text": "🗓 График работы", "callback_data": "admin_cal_0"}],
                     [{"text": "📋 Просмотр записей", "callback_data": "admin_bookings_cal_0"}],
@@ -232,6 +237,10 @@ async def handle_admin_callback(chat_id: int, data: str, bot_token: str):
         field_name = "_".join(parts[2:-1])
         admin_states[chat_id] = f"{field_name}_{date_str}"
         prompt_key = field_name
+    elif data in ["edit_open_time", "edit_close_time", "edit_slot_duration", "edit_buffer_before", "edit_buffer_after", "add_break_global"]:
+        field = data.replace("edit_", "")
+        admin_states[chat_id] = field
+        prompt_key = field
     elif data.startswith("add_break_"):
         date_str = data.split("_")[-1]
         admin_states[chat_id] = f"add_break_{date_str}"
@@ -296,7 +305,7 @@ async def handle_admin_text(chat_id: int, text: str, bot_token: str):
                 studio_settings = result.scalar_one_or_none()
                 
                 if studio_settings:
-                    if field_to_edit == "slot_duration":
+                    if field_to_edit in ["slot_duration", "buffer_before", "buffer_after"]:
                         setattr(studio_settings, field_to_edit, int(text))
                         redirect_target = "global"
                     elif field_to_edit == "add_break_global":

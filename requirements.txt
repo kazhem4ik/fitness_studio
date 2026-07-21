@@ -4,3 +4,5 @@ httpx
 pydantic-settings
 sqlalchemy
 aiosqlite
+bcrypt
+PyJWT

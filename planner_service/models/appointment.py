@@ -1,7 +1,7 @@
 from datetime import datetime, date, time
 from typing import Optional
-from sqlalchemy import Integer, String, Date, Time, DateTime, Boolean, Float, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Integer, String, Date, Time, DateTime, Boolean, Float, Text, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from planner_service.core.database import Base
 
@@ -12,7 +12,10 @@ class Appointment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    # Клиент
+    # Клиент (опциональная привязка к карточке Client)
+    client_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("clients.id"), nullable=True, index=True
+    )
     client_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     client_phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
@@ -33,9 +36,16 @@ class Appointment(Base):
     # Статус
     is_confirmed: Mapped[bool] = mapped_column(Boolean, default=True)
     is_cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_attended: Mapped[bool] = mapped_column(Boolean, default=False)   # Тренировка проведена (списывает занятие)
+    is_no_show: Mapped[bool] = mapped_column(Boolean, default=False)    # Клиент не пришёл
 
     # Мета
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # Связь с карточкой клиента
+    client: Mapped[Optional["Client"]] = relationship(
+        "Client", back_populates="appointments", foreign_keys=[client_id]
     )

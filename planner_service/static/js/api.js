@@ -71,6 +71,40 @@ const API = {
         return this.request('DELETE', `/appointments/${id}`);
     },
 
+    // --- Clients ---
+    getClients() {
+        return this.request('GET', '/clients');
+    },
+
+    createClient(data) {
+        return this.request('POST', '/clients', data);
+    },
+
+    updateClient(id, data) {
+        return this.request('PUT', `/clients/${id}`, data);
+    },
+
+    getClientDetails(id) {
+        return this.request('GET', `/clients/${id}`);
+    },
+
+    addPackage(clientId, data) {
+        return this.request('POST', `/clients/${clientId}/packages`, data);
+    },
+
+    markAttended(clientId, appointmentId) {
+        return this.request('POST', `/clients/${clientId}/attend/${appointmentId}`);
+    },
+
+    // --- Finances ---
+    getFinanceSummary(period = 'month') {
+        return this.request('GET', `/finances/summary?period=${period}`);
+    },
+
+    addExpense(data) {
+        return this.request('POST', '/finances/expenses', data);
+    },
+
     // --- Client name suggestions ---
     getClientNames(query = '') {
         const qs = query ? `?q=${encodeURIComponent(query)}` : '';

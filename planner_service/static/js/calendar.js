@@ -414,6 +414,12 @@ const Calendar = {
             case 'day': this.renderDay(); break;
             case 'week': this.renderWeek(); break;
             case 'month': this.renderMonth(); break;
+            case 'clients': 
+                if (window.clientsManager) window.clientsManager.loadClients();
+                break;
+            case 'finances': 
+                if (window.financesManager) window.financesManager.loadData();
+                break;
         }
         this.updateHeader();
     },
