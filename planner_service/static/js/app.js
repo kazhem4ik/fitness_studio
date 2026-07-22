@@ -75,17 +75,90 @@ document.addEventListener('DOMContentLoaded', async () => {
     // При успешном логине
     window.addEventListener('app:ready', () => {
         Calendar.switchView('month');
+        initPush();
     });
 
     // Service Worker registration
+    let swRegistration = null;
     if ('serviceWorker' in navigator) {
         try {
-            const reg = await navigator.serviceWorker.register('/clients/sw.js', {
+            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=5', {
                 scope: '/clients/'
             });
-            console.log('SW registered:', reg.scope);
+            console.log('SW registered:', swRegistration.scope);
+            
+            // Если уже авторизованы при загрузке страницы, пробуем подписаться
+            if (isAuth) {
+                initPush();
+            }
         } catch (err) {
             console.warn('SW registration failed:', err);
         }
+    }
+
+    async function initPush() {
+        if (!swRegistration) return;
+        if (Notification.permission === 'denied') return;
+        
+        // Запрашиваем разрешение
+        if (Notification.permission === 'default') {
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') return;
+        }
+
+        try {
+            // Проверяем, есть ли уже подписка
+            let subscription = await swRegistration.pushManager.getSubscription();
+            
+            if (!subscription) {
+                // Запрашиваем публичный ключ у сервера
+                const res = await fetch('/clients/api/auth/push/vapid-public-key');
+                if (!res.ok) throw new Error('No VAPID key');
+                const data = await res.json();
+                
+                const applicationServerKey = urlB64ToUint8Array(data.public_key);
+                subscription = await swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey
+                });
+            }
+
+            // Отправляем подписку на сервер
+            await fetch('/clients/api/auth/push/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    endpoint: subscription.endpoint,
+                    keys: {
+                        p256dh: arrayBufferToBase64(subscription.getKey('p256dh')),
+                        auth: arrayBufferToBase64(subscription.getKey('auth'))
+                    }
+                })
+            });
+            console.log('Push subscription sent to server');
+        } catch (err) {
+            console.error('Failed to subscribe for push', err);
+        }
+    }
+
+    function urlB64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+    
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 });
