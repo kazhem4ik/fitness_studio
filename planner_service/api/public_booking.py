@@ -141,11 +141,12 @@ async def create_booking(
     # Создаем запись
     appointment = Appointment(
         client_id=client.id,
+        client_name=client.full_name,
+        client_phone=formatted_phone,
         date=app_date,
         time_start=start_time,
         time_end=end_time,
         training_type="Персональная",
-        status="scheduled",
         price=0.0
     )
     db.add(appointment)

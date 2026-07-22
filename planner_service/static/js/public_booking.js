@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     date: dateInput.value,
                     time: selectedTime,
                     client_name: nameInput.value.trim(),
-                    client_phone: phoneInput.value.trim()
+                    client_phone: '+' + phoneInput.value.replace(/\D/g, '')
                 })
             });
 
