@@ -183,26 +183,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             let subscription = await swRegistration.pushManager.getSubscription();
             
-            if (!subscription) {
-                const res = await fetch('/clients/api/auth/push/vapid-public-key');
-                if (!res.ok) throw new Error('No VAPID key');
-                const data = await res.json();
-                const pubKey = data.public_key;
-                
-                // Try passing as string first (spec allows DOMString)
-                // then fall back to Uint8Array if that fails
-                let applicationServerKey;
-                try {
-                    applicationServerKey = urlB64ToUint8Array(pubKey);
-                } catch (e) {
-                    applicationServerKey = pubKey;
-                }
-                
-                subscription = await swRegistration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey
-                });
+            // Всегда отписываемся и подписываемся заново, чтобы сбросить старый ключ
+            if (subscription) {
+                await subscription.unsubscribe();
+                subscription = null;
             }
+            
+            const res = await fetch('/clients/api/auth/push/vapid-public-key');
+            if (!res.ok) throw new Error('No VAPID key');
+            const data = await res.json();
+            const pubKey = data.public_key;
+            
+            const applicationServerKey = urlB64ToUint8Array(pubKey);
+            subscription = await swRegistration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey
+            });
 
             await fetch('/clients/api/auth/push/subscribe', {
                 method: 'POST',

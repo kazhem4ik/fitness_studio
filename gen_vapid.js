@@ -1,24 +1,19 @@
-const crypto = require('crypto');
+const { createECDH } = require('crypto');
 
-// Generate P-256 key pair
-const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', {
-    namedCurve: 'P-256'
-});
+// prime256v1 = P-256
+const ecdh = createECDH('prime256v1');
+ecdh.generateKeys();
 
-// Public key: uncompressed point (04 || x || y), base64url encoded
-const pubRaw = publicKey.export({ type: 'spki', format: 'der' });
-// Last 65 bytes of SPKI DER are the uncompressed public key
-const pubBytes = pubRaw.slice(-65);
-const pubB64 = pubBytes.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+// getPublicKey() returns 65 bytes: 04 || x || y (uncompressed point)
+const pubBytes = ecdh.getPublicKey(); // Buffer
+const pubB64 = pubBytes.toString('base64url');
 
-// Private key: raw 32-byte scalar, base64url encoded
-const privDer = privateKey.export({ type: 'pkcs8', format: 'der' });
-// Private key scalar is at offset 36, 32 bytes
-const privBytes = privDer.slice(36, 68);
-const privB64 = privBytes.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+// getPrivateKey() returns 32 bytes raw scalar
+const privBytes = ecdh.getPrivateKey(); // Buffer
+const privB64 = privBytes.toString('base64url');
 
 console.log('PUBLIC:', pubB64);
 console.log('PRIVATE:', privB64);
-console.log('pub length:', pubBytes.length);
-console.log('priv length:', privBytes.length);
+console.log('pub length:', pubBytes.length, '(should be 65)');
+console.log('priv length:', privBytes.length, '(should be 32)');
 console.log('first pub byte:', pubBytes[0].toString(16), '(should be 04)');
