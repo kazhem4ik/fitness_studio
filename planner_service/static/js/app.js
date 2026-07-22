@@ -108,18 +108,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!swRegistration) return;
         
         if (!('Notification' in window)) {
-            showToast("Push API не поддерживается (iOS < 16.4?)", 5000);
+            showToast("v8: Push API не поддерживается (iOS < 16.4? или открыто в Safari)", 5000);
             return;
         }
         
         // Показываем кнопку если разрешения еще нет
         if (Notification.permission === 'default' && btnPush) {
             btnPush.style.display = 'flex';
-            showToast("Push: default (кнопка должна быть в меню)", 3000);
+            showToast("v8: Push = default (кнопка в меню)", 3000);
         } else if (Notification.permission === 'granted') {
             if (btnPush) btnPush.style.display = 'none';
-            // Если разрешение уже есть, пробуем подписаться без явного действия пользователя
+            showToast("v8: Push = granted (уже разрешено)", 3000);
             await subscribeToPush(true);
+        } else if (Notification.permission === 'denied') {
+            if (btnPush) btnPush.style.display = 'none';
+            showToast("v8: Push = DENIED (Запрещено в настройках!)", 5000);
         } else {
             if (btnPush) btnPush.style.display = 'none';
         }

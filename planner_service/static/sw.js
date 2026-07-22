@@ -2,7 +2,7 @@
  * Service Worker — кэширование ресурсов для офлайн-работы + push-уведомления.
  */
 
-const CACHE_NAME = 'fitness-planner-v7';
+const CACHE_NAME = 'fitness-planner-v8';
 const STATIC_ASSETS = [
     '/clients/',
     '/clients/static/css/style.css',
