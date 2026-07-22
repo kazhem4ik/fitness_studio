@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // При успешном логине
     window.addEventListener('app:ready', () => {
         Calendar.switchView('month');
-        initPush();
+        initPushUI();
     });
 
     // Service Worker registration
@@ -89,24 +89,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Если уже авторизованы при загрузке страницы, пробуем подписаться
             if (isAuth) {
-                initPush();
+                initPushUI();
             }
         } catch (err) {
             console.warn('SW registration failed:', err);
         }
     }
 
-    async function initPush() {
-        if (!swRegistration) return;
-        if (Notification.permission === 'denied') return;
-        
-        // Запрашиваем разрешение
-        if (Notification.permission === 'default') {
-            const perm = await Notification.requestPermission();
-            if (perm !== 'granted') return;
-        }
+    // Push Notifications Logic
+    const btnPush = document.getElementById('btn-push-subscribe');
+    if (btnPush) {
+        btnPush.addEventListener('click', async () => {
+            await subscribeToPush();
+        });
+    }
 
+    async function initPushUI() {
+        if (!swRegistration) return;
+        
+        // Показываем кнопку если разрешения еще нет
+        if (Notification.permission === 'default' && btnPush) {
+            btnPush.style.display = 'flex';
+        } else if (Notification.permission === 'granted') {
+            if (btnPush) btnPush.style.display = 'none';
+            // Если разрешение уже есть, пробуем подписаться без явного действия пользователя
+            await subscribeToPush(true);
+        } else {
+            if (btnPush) btnPush.style.display = 'none';
+        }
+    }
+
+    async function subscribeToPush(silent = false) {
+        if (!swRegistration) return;
+        
         try {
+            if (Notification.permission === 'default' && !silent) {
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') {
+                    showToast('Уведомления отклонены', 3000);
+                    if (btnPush) btnPush.style.display = 'none';
+                    return;
+                }
+            } else if (Notification.permission !== 'granted') {
+                return;
+            }
+
+            if (btnPush) btnPush.style.display = 'none';
+
             // Проверяем, есть ли уже подписка
             let subscription = await swRegistration.pushManager.getSubscription();
             
@@ -136,8 +165,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 })
             });
             console.log('Push subscription sent to server');
+            if (!silent) showToast('Уведомления включены!', 3000);
         } catch (err) {
             console.error('Failed to subscribe for push', err);
+            if (!silent) showToast('Ошибка при подписке на push', 3000);
         }
     }
 
