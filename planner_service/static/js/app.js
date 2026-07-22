@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 subscription = null;
             }
             
-            const res = await fetch('/clients/api/auth/push/vapid-public-key');
+            const res = await fetch('/clients/api/auth/push/vapid-public-key?_t=' + Date.now());
             if (!res.ok) throw new Error('No VAPID key');
             const data = await res.json();
             const pubKey = data.public_key;
