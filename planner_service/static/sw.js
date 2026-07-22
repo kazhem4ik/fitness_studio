@@ -2,7 +2,7 @@
  * Service Worker — кэширование ресурсов для офлайн-работы + push-уведомления.
  */
 
-const CACHE_NAME = 'fitness-planner-v12';
+const CACHE_NAME = 'fitness-planner-v13';
 const STATIC_ASSETS = [
     '/clients/',
     '/clients/static/css/style.css',
@@ -10,7 +10,6 @@ const STATIC_ASSETS = [
     '/clients/static/js/auth.js',
     '/clients/static/js/calendar.js',
     '/clients/static/js/appointments.js',
-    '/clients/static/js/app.js',
     '/clients/static/icons/icon-192.png',
     '/clients/static/icons/icon-512.png',
 ];
@@ -37,7 +36,7 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// --- Fetch: Network First для API, Cache First для статики ---
+// --- Fetch: Network First для API и app.js, Cache First для остальной статики ---
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
@@ -54,9 +53,17 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // app.js и index.html — всегда сеть (чтобы обновления подхватывались)
+    if (url.pathname.endsWith('app.js') || url.pathname === '/clients/' || url.pathname === '/clients/index.html') {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match('/clients/'))
+        );
+        return;
+    }
+
     // Статика — Cache First
     event.respondWith(
-        caches.match(event.request).then(cached => {
+        caches.match(event.request, { ignoreSearch: true }).then(cached => {
             return cached || fetch(event.request).then(response => {
                 // Кэшируем новые ресурсы
                 if (response.status === 200) {
