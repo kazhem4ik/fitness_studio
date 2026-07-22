@@ -107,6 +107,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function initPushUI() {
         if (!swRegistration) return;
         
+        if (!('Notification' in window)) {
+            console.warn("Push API is not supported in this browser.");
+            return;
+        }
+        
         // Показываем кнопку если разрешения еще нет
         if (Notification.permission === 'default' && btnPush) {
             btnPush.style.display = 'flex';
@@ -121,6 +126,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function subscribeToPush(silent = false) {
         if (!swRegistration) return;
+        if (!('Notification' in window)) {
+            if (!silent) showToast('Push-уведомления не поддерживаются', 3000);
+            return;
+        }
         
         try {
             if (Notification.permission === 'default' && !silent) {
