@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let swRegistration = null;
     if ('serviceWorker' in navigator) {
         try {
-            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=5', {
+            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=7', {
                 scope: '/clients/'
             });
             console.log('SW registered:', swRegistration.scope);
@@ -108,13 +108,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!swRegistration) return;
         
         if (!('Notification' in window)) {
-            console.warn("Push API is not supported in this browser.");
+            showToast("Push API не поддерживается (iOS < 16.4?)", 5000);
             return;
         }
         
         // Показываем кнопку если разрешения еще нет
         if (Notification.permission === 'default' && btnPush) {
             btnPush.style.display = 'flex';
+            showToast("Push: default (кнопка должна быть в меню)", 3000);
         } else if (Notification.permission === 'granted') {
             if (btnPush) btnPush.style.display = 'none';
             // Если разрешение уже есть, пробуем подписаться без явного действия пользователя
