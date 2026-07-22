@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!silent) showToast('✅ Уведомления включены!', 3000);
         } catch (err) {
             console.error('Failed to subscribe for push:', err);
-            if (!silent) showToast('Ошибка при подписке на push', 3000);
+            if (!silent) showToast('Ошибка: ' + (err.message || err.name || String(err)), 6000);
         }
     }
 
