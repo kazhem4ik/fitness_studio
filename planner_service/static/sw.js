@@ -2,7 +2,7 @@
  * Service Worker — кэширование ресурсов для офлайн-работы + push-уведомления.
  */
 
-const CACHE_NAME = 'fitness-planner-v13';
+const CACHE_NAME = 'fitness-planner-v14';
 const STATIC_ASSETS = [
     '/clients/',
     '/clients/static/css/style.css',
@@ -53,8 +53,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // app.js и index.html — всегда сеть (чтобы обновления подхватывались)
-    if (url.pathname.endsWith('app.js') || url.pathname === '/clients/' || url.pathname === '/clients/index.html') {
+    // app.js — всегда сеть
+    if (url.pathname.endsWith('app.js')) {
+        event.respondWith(
+            fetch(event.request).catch(() => new Response('console.error("Offline");', { headers: { 'Content-Type': 'application/javascript' } }))
+        );
+        return;
+    }
+    
+    // index.html — всегда сеть
+    if (url.pathname === '/clients/' || url.pathname === '/clients/index.html') {
         event.respondWith(
             fetch(event.request).catch(() => caches.match('/clients/'))
         );
