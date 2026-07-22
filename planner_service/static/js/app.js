@@ -75,89 +75,118 @@ document.addEventListener('DOMContentLoaded', async () => {
     // При успешном логине
     window.addEventListener('app:ready', () => {
         Calendar.switchView('month');
-        initPushUI();
+        showPushModalIfNeeded();
     });
 
-    // Service Worker registration
+    // Service Worker registration — делаем сразу, не дожидаясь логина
     let swRegistration = null;
     if ('serviceWorker' in navigator) {
         try {
-            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=7', {
+            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=8', {
                 scope: '/clients/'
             });
             console.log('SW registered:', swRegistration.scope);
             
-            // Если уже авторизованы при загрузке страницы, пробуем подписаться
+            // Если уже авторизованы при загрузке страницы
             if (isAuth) {
-                initPushUI();
+                showPushModalIfNeeded();
             }
         } catch (err) {
             console.warn('SW registration failed:', err);
         }
     }
 
-    // Push Notifications Logic
+    // --- Push Notification Logic ---
+    const pushModal = document.getElementById('push-permission-modal');
+    const btnPushAllow = document.getElementById('btn-push-allow');
+    const btnPushDismiss = document.getElementById('btn-push-dismiss');
     const btnPush = document.getElementById('btn-push-subscribe');
+
+    // Кнопка в dropdown — тот же эффект что и кнопка "Разрешить" в модалке
     if (btnPush) {
         btnPush.addEventListener('click', async () => {
-            await subscribeToPush();
+            dropdown.classList.add('hidden');
+            await requestPushPermission();
         });
     }
 
-    async function initPushUI() {
+    if (btnPushAllow) {
+        btnPushAllow.addEventListener('click', async () => {
+            hidePushModal();
+            await requestPushPermission();
+        });
+    }
+
+    if (btnPushDismiss) {
+        btnPushDismiss.addEventListener('click', () => {
+            hidePushModal();
+            // Запомним что пользователь нажал "Не сейчас" — не спрашиваем снова в эту сессию
+            sessionStorage.setItem('push_dismissed', '1');
+        });
+    }
+
+    function showPushModal() {
+        if (!pushModal) return;
+        pushModal.style.display = 'flex';
+    }
+
+    function hidePushModal() {
+        if (!pushModal) return;
+        pushModal.style.display = 'none';
+    }
+
+    function showPushModalIfNeeded() {
         if (!swRegistration) return;
-        
-        if (!('Notification' in window)) {
-            showToast("v8: Push API не поддерживается (iOS < 16.4? или открыто в Safari)", 5000);
+        if (!('Notification' in window)) return; // iOS без экрана домой или старая версия
+        if (Notification.permission === 'granted') {
+            // Уже разрешено — тихо переподписываемся
+            subscribeToPush(true);
+            if (btnPush) btnPush.style.display = 'none';
             return;
         }
-        
-        // Показываем кнопку если разрешения еще нет
-        if (Notification.permission === 'default' && btnPush) {
-            btnPush.style.display = 'flex';
-            showToast("v8: Push = default (кнопка в меню)", 3000);
-        } else if (Notification.permission === 'granted') {
+        if (Notification.permission === 'denied') {
             if (btnPush) btnPush.style.display = 'none';
-            showToast("v8: Push = granted (уже разрешено)", 3000);
-            await subscribeToPush(true);
-        } else if (Notification.permission === 'denied') {
-            if (btnPush) btnPush.style.display = 'none';
-            showToast("v8: Push = DENIED (Запрещено в настройках!)", 5000);
-        } else {
-            if (btnPush) btnPush.style.display = 'none';
+            return;
+        }
+        // permission === 'default' — показываем модалку
+        if (sessionStorage.getItem('push_dismissed')) {
+            // Пользователь уже отклонил в этой сессии — показываем кнопку в меню
+            if (btnPush) btnPush.style.display = 'flex';
+            return;
+        }
+        // Небольшая задержка чтобы экран успел прорисоваться
+        setTimeout(() => showPushModal(), 800);
+    }
+
+    async function requestPushPermission() {
+        if (!swRegistration || !('Notification' in window)) return;
+        try {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                if (btnPush) btnPush.style.display = 'none';
+                await subscribeToPush(false);
+            } else {
+                showToast('Уведомления отклонены', 3000);
+                if (btnPush) btnPush.style.display = 'none';
+            }
+        } catch (err) {
+            console.error('requestPermission error:', err);
+            showToast('Ошибка запроса разрешения', 3000);
         }
     }
 
     async function subscribeToPush(silent = false) {
         if (!swRegistration) return;
-        if (!('Notification' in window)) {
-            if (!silent) showToast('Push-уведомления не поддерживаются', 3000);
-            return;
-        }
-        
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+
         try {
-            if (Notification.permission === 'default' && !silent) {
-                const perm = await Notification.requestPermission();
-                if (perm !== 'granted') {
-                    showToast('Уведомления отклонены', 3000);
-                    if (btnPush) btnPush.style.display = 'none';
-                    return;
-                }
-            } else if (Notification.permission !== 'granted') {
-                return;
-            }
-
-            if (btnPush) btnPush.style.display = 'none';
-
-            // Проверяем, есть ли уже подписка
             let subscription = await swRegistration.pushManager.getSubscription();
             
             if (!subscription) {
-                // Запрашиваем публичный ключ у сервера
                 const res = await fetch('/clients/api/auth/push/vapid-public-key');
                 if (!res.ok) throw new Error('No VAPID key');
                 const data = await res.json();
-                
                 const applicationServerKey = urlB64ToUint8Array(data.public_key);
                 subscription = await swRegistration.pushManager.subscribe({
                     userVisibleOnly: true,
@@ -165,7 +194,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
-            // Отправляем подписку на сервер
             await fetch('/clients/api/auth/push/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -177,10 +205,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 })
             });
-            console.log('Push subscription sent to server');
-            if (!silent) showToast('Уведомления включены!', 3000);
+
+            if (!silent) showToast('✅ Уведомления включены!', 3000);
         } catch (err) {
-            console.error('Failed to subscribe for push', err);
+            console.error('Failed to subscribe for push:', err);
             if (!silent) showToast('Ошибка при подписке на push', 3000);
         }
     }

@@ -65,6 +65,17 @@
         </div>
     </div>
 
+    <!-- ==================== PUSH PERMISSION MODAL ==================== -->
+    <div id="push-permission-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); display:none; align-items:flex-end; justify-content:center; padding:0 0 32px 0;">
+        <div style="background:#1e1e2e; border-radius:20px 20px 20px 20px; padding:28px 24px; max-width:400px; width:calc(100% - 32px); box-shadow:0 -8px 40px rgba(0,0,0,0.5);">
+            <div style="font-size:48px; text-align:center; margin-bottom:12px;">🔔</div>
+            <h2 style="text-align:center; font-size:20px; font-weight:700; margin-bottom:8px; color:#fff;">Включить уведомления?</h2>
+            <p style="text-align:center; color:#a1a1aa; font-size:14px; margin-bottom:24px;">Вы будете получать уведомления о новых записях клиентов</p>
+            <button id="btn-push-allow" style="width:100%; background:linear-gradient(135deg,#7c3aed,#2563eb); color:#fff; border:none; border-radius:12px; padding:16px; font-size:16px; font-weight:600; cursor:pointer; margin-bottom:12px;">Разрешить уведомления</button>
+            <button id="btn-push-dismiss" style="width:100%; background:transparent; color:#a1a1aa; border:none; padding:12px; font-size:15px; cursor:pointer;">Не сейчас</button>
+        </div>
+    </div>
+
     <!-- ==================== MAIN APP ==================== -->
     <div id="app-screen" class="screen">
         <!-- Header -->
@@ -113,7 +124,7 @@
 
         <!-- Dropdown Menu -->
         <div id="dropdown-menu" class="dropdown-menu hidden">
-            <button id="btn-push-subscribe" class="dropdown-item" style="display: none;">
+            <button id="btn-push-subscribe" class="dropdown-item">
                 <i class="fas fa-bell"></i>
                 <span>Включить уведомления</span>
             </button>
@@ -454,6 +465,6 @@
     <script src="/clients/static/js/appointments.js?v=4"></script>
     <script src="/clients/static/js/clients.js?v=4"></script>
     <script src="/clients/static/js/finances.js?v=4"></script>
-    <script src="/clients/static/js/app.js?v=8"></script>
+    <script src="/clients/static/js/app.js?v=9"></script>
 </body>
 </html>
