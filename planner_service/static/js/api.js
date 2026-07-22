@@ -101,8 +101,28 @@ const API = {
         return this.request('GET', `/finances/summary?period=${period}`);
     },
 
+    getExpenses(dateFrom, dateTo) {
+        let qs = '';
+        if (dateFrom && dateTo) {
+            qs = `?date_from=${dateFrom}&date_to=${dateTo}`;
+        }
+        return this.request('GET', `/finances/expenses${qs}`);
+    },
+    
+    getIncome(dateFrom, dateTo) {
+        let qs = '';
+        if (dateFrom && dateTo) {
+            qs = `?date_from=${dateFrom}&date_to=${dateTo}`;
+        }
+        return this.request('GET', `/finances/income${qs}`);
+    },
+
     addExpense(data) {
         return this.request('POST', '/finances/expenses', data);
+    },
+    
+    addIncome(data) {
+        return this.request('POST', '/finances/incomes', data);
     },
 
     // --- Client name suggestions ---

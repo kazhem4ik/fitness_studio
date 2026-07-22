@@ -1,4 +1,4 @@
-﻿from datetime import date, datetime
+from datetime import date, datetime
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -118,7 +118,8 @@ async def get_client(
     _auth: dict = Depends(require_auth),
 ):
     """Детали клиента: карточка + история абонементов."""
-    result = await db.execute(select(Client).where(Client.id == client_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(select(Client).options(selectinload(Client.packages)).where(Client.id == client_id))
     client = result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")

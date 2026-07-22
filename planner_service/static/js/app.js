@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isAuth = await Auth.checkAuth();
     if (isAuth) {
         Auth.showApp();
-        Calendar.render();
+        Calendar.switchView('month');
     } else {
         Auth.showLogin();
     }

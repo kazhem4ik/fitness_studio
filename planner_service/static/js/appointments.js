@@ -58,6 +58,12 @@ const Appointments = {
         document.getElementById('apt-price').value = apt.price || '';
         document.getElementById('apt-payment-method').value = apt.payment_method || '';
         document.getElementById('apt-is-paid').checked = apt.is_paid;
+        
+        const sessionsEl = document.getElementById('apt-sessions-count');
+        if (sessionsEl) {
+            sessionsEl.value = '';
+            sessionsEl.closest('.form-group').style.display = 'none'; // Скрываем при редактировании
+        }
 
         this.showModal();
     },
@@ -105,6 +111,11 @@ const Appointments = {
             payment_method: document.getElementById('apt-payment-method').value || null,
             is_paid: document.getElementById('apt-is-paid').checked,
         };
+        
+        const sessionsCount = document.getElementById('apt-sessions-count')?.value;
+        if (sessionsCount && !this.editingId) {
+            data.sessions_count = parseInt(sessionsCount, 10);
+        }
 
         if (!data.client_name || !data.date || !data.time_start || !data.time_end) {
             showToast('Заполните обязательные поля');
@@ -215,8 +226,98 @@ const Appointments = {
         // Скрыть подсказки при клике вне
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#apt-client-name') && !e.target.closest('#client-suggestions')) {
-                document.getElementById('client-suggestions').classList.add('hidden');
+                const sugg = document.getElementById('client-suggestions');
+                if (sugg) sugg.classList.add('hidden');
             }
         });
+
+        // Модалка выбора клиента
+        const btnSelect = document.getElementById('btn-select-client');
+        if (btnSelect) {
+            btnSelect.addEventListener('click', async () => {
+                const modal = document.getElementById('client-select-modal');
+                const listEl = document.getElementById('cs-list');
+                const searchEl = document.getElementById('cs-search');
+                
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                
+                try {
+                    const clients = await API.getClients();
+                    
+                    const renderList = (query) => {
+                        listEl.innerHTML = '';
+                        const q = query.toLowerCase();
+                        clients.filter(c => c.full_name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)))
+                        .forEach(c => {
+                            const div = document.createElement('div');
+                            div.className = 'client-card';
+                            div.style.cursor = 'pointer';
+                            div.innerHTML = `<div><div style="font-weight:600">${c.full_name}</div><div style="font-size:12px;color:gray">${c.phone||''}</div></div>`;
+                            div.addEventListener('click', () => {
+                                document.getElementById('apt-client-name').value = c.full_name;
+                                document.getElementById('apt-client-phone').value = c.phone || '';
+                                modal.classList.add('hidden');
+                                document.body.style.overflow = '';
+                            });
+                            listEl.appendChild(div);
+                        });
+                    };
+                    
+                    renderList('');
+                    searchEl.addEventListener('input', (e) => renderList(e.target.value));
+                    
+                } catch (e) {
+                    console.error(e);
+                }
+            });
+        }
+        
+        document.getElementById('cs-btn-close')?.addEventListener('click', () => {
+            document.getElementById('client-select-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        });
+
+        // Автоформатирование телефона
+        const phoneInput = document.getElementById('apt-client-phone');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', function(e) {
+                let val = e.target.value.replace(/\D/g, '');
+                if (!val) {
+                    e.target.value = '';
+                    return;
+                }
+                if (val.startsWith('7') || val.startsWith('8')) {
+                    val = '7' + val.substring(1);
+                } else {
+                    val = '7' + val;
+                }
+                
+                let formatted = '+7';
+                if (val.length > 1) formatted += ' (' + val.substring(1, 4);
+                if (val.length >= 5) formatted += ') ' + val.substring(4, 7);
+                if (val.length >= 8) formatted += '-' + val.substring(7, 9);
+                if (val.length >= 10) formatted += '-' + val.substring(9, 11);
+                
+                e.target.value = formatted;
+            });
+        }
+
+        // Автоматический расчет времени окончания (+1 час)
+        const timeStartInput = document.getElementById('apt-time-start');
+        const timeEndInput = document.getElementById('apt-time-end');
+        if (timeStartInput && timeEndInput) {
+            timeStartInput.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    const parts = e.target.value.split(':');
+                    if (parts.length === 2) {
+                        const start = new Date();
+                        start.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0);
+                        start.setHours(start.getHours() + 1);
+                        timeEndInput.value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+                    }
+                }
+            });
+        }
     }
 };

@@ -3,7 +3,7 @@
  */
 const Calendar = {
     currentDate: new Date(),
-    currentView: 'day',
+    currentView: 'month',
     appointments: [],
 
     // Русские названия
@@ -203,82 +203,7 @@ const Calendar = {
         return card;
     },
 
-    // =========================================================
-    //  WEEK VIEW
-    // =========================================================
-    async renderWeek() {
-        const weekStart = this.getWeekStart(this.currentDate);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
 
-        // Заголовок
-        const weekText = document.getElementById('week-date-text');
-        weekText.textContent = `${weekStart.getDate()} ${this.MONTHS_GEN[weekStart.getMonth()]} — ${weekEnd.getDate()} ${this.MONTHS_GEN[weekEnd.getMonth()]}`;
-
-        // Загружаем данные за неделю
-        try {
-            this.appointments = await API.getAppointments({
-                date_from: this.formatDate(weekStart),
-                date_to: this.formatDate(weekEnd),
-            });
-        } catch (err) {
-            console.error('Failed to load week:', err);
-            this.appointments = [];
-        }
-
-        // Группируем по дням
-        const aptsByDate = {};
-        this.appointments.forEach(apt => {
-            if (!aptsByDate[apt.date]) aptsByDate[apt.date] = [];
-            aptsByDate[apt.date].push(apt);
-        });
-
-        const grid = document.getElementById('week-grid');
-        grid.innerHTML = '';
-
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(weekStart);
-            d.setDate(d.getDate() + i);
-            const dateStr = this.formatDate(d);
-
-            const dayEl = document.createElement('div');
-            dayEl.className = 'week-day';
-            if (this.isToday(d)) dayEl.classList.add('today');
-
-            // Заголовок дня
-            const header = document.createElement('div');
-            header.className = 'week-day-header';
-            header.innerHTML = `
-                <div class="week-day-name">${this.DAYS_SHORT[i]}</div>
-                <div class="week-day-num">${d.getDate()}</div>
-            `;
-            dayEl.appendChild(header);
-
-            // Записи
-            const dayApts = aptsByDate[dateStr] || [];
-            dayApts.forEach(apt => {
-                const el = document.createElement('div');
-                el.className = 'week-apt';
-                const color = this.TRAINING_COLORS[apt.training_type] || '#7c3aed';
-                el.style.background = `${color}25`;
-                el.style.color = color;
-                el.textContent = `${apt.time_start.substring(0,5)} ${apt.client_name}`;
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    Appointments.openEdit(apt);
-                });
-                dayEl.appendChild(el);
-            });
-
-            // Клик по дню — переключиться на дневной вид
-            dayEl.addEventListener('click', () => {
-                this.currentDate = new Date(d);
-                this.switchView('day');
-            });
-
-            grid.appendChild(dayEl);
-        }
-    },
 
     // =========================================================
     //  MONTH VIEW
@@ -376,10 +301,6 @@ const Calendar = {
                 d.setDate(d.getDate() + direction);
                 this.renderDay();
                 break;
-            case 'week':
-                d.setDate(d.getDate() + direction * 7);
-                this.renderWeek();
-                break;
             case 'month':
                 d.setMonth(d.getMonth() + direction);
                 this.renderMonth();
@@ -396,10 +317,16 @@ const Calendar = {
     switchView(view) {
         this.currentView = view;
 
-        // Обновляем табы
+        // Обновляем табы (снимаем active, если view 'day', так как вкладки 'day' больше нет)
         document.querySelectorAll('.tab').forEach(t => {
             t.classList.toggle('active', t.dataset.view === view);
         });
+
+        // Показываем кнопку назад, если мы в 'day'
+        const btnBack = document.getElementById('btn-back-month');
+        if (btnBack) {
+            btnBack.classList.toggle('hidden', view !== 'day');
+        }
 
         // Обновляем виды
         document.querySelectorAll('.view').forEach(v => {
@@ -412,7 +339,6 @@ const Calendar = {
     render() {
         switch (this.currentView) {
             case 'day': this.renderDay(); break;
-            case 'week': this.renderWeek(); break;
             case 'month': this.renderMonth(); break;
             case 'clients': 
                 if (window.clientsManager) window.clientsManager.loadClients();
@@ -437,13 +363,15 @@ const Calendar = {
         document.getElementById('day-prev').addEventListener('click', () => this.navigate(-1));
         document.getElementById('day-next').addEventListener('click', () => this.navigate(1));
 
-        // Навигация по неделям
-        document.getElementById('week-prev').addEventListener('click', () => this.navigate(-1));
-        document.getElementById('week-next').addEventListener('click', () => this.navigate(1));
-
         // Навигация по месяцам
         document.getElementById('month-prev').addEventListener('click', () => this.navigate(-1));
         document.getElementById('month-next').addEventListener('click', () => this.navigate(1));
+
+        // Кнопка назад к месяцу
+        const btnBack = document.getElementById('btn-back-month');
+        if (btnBack) {
+            btnBack.addEventListener('click', () => this.switchView('month'));
+        }
 
         // Кнопка "Сегодня"
         document.getElementById('btn-today').addEventListener('click', () => this.goToToday());

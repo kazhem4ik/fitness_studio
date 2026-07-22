@@ -8,10 +8,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./bot_service:/app
+      - .:/app
       - ./database:/database
     environment:
       - PYTHONPATH=/app
+    env_file:
+      - .env
+    command: uvicorn bot_service.main:app --host 0.0.0.0 --port 8000
 
   planner_service:
     build:
@@ -20,12 +23,13 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - ./planner_service:/app
+      - .:/app
       - ./database:/database
     environment:
       - PYTHONPATH=/app
     env_file:
       - .env
+    command: uvicorn planner_service.main:app --host 0.0.0.0 --port 8001
 
   nginx:
     image: nginx:alpine

@@ -10,6 +10,8 @@ from planner_service.core.config import settings
 from planner_service.core.database import get_db
 from planner_service.core.security import decode_access_token
 from planner_service.models.appointment import Appointment
+from planner_service.models.client import Client
+from planner_service.models.package import Package
 
 router = APIRouter(prefix="/api/appointments", tags=["appointments"])
 
@@ -84,6 +86,7 @@ class AppointmentCreate(BaseModel):
     is_paid: bool = False
     payment_method: Optional[str] = None
     is_confirmed: bool = True
+    sessions_count: Optional[int] = None
 
 
 class AppointmentUpdate(BaseModel):
@@ -146,7 +149,34 @@ async def get_appointments(
 
     query = query.order_by(Appointment.date, Appointment.time_start)
     result = await db.execute(query)
-    return result.scalars().all()
+    appointments = result.scalars().all()
+    
+    # Auto-deduction for passed appointments
+    now = datetime.utcnow()
+    # Moscow time? Let's use local server time: now = datetime.now()
+    local_now = datetime.now()
+    
+    changed = False
+    for appt in appointments:
+        if not appt.is_attended and not appt.is_cancelled:
+            # check if time has passed
+            appt_dt = datetime.combine(appt.date, appt.time_end)
+            if appt_dt < local_now:
+                appt.is_attended = True
+                
+                # deduct session if client exists
+                if appt.client_id:
+                    client_res = await db.execute(select(Client).where(Client.id == appt.client_id))
+                    client = client_res.scalar_one_or_none()
+                    if client and client.sessions_balance > 0:
+                        client.sessions_balance -= 1
+                
+                changed = True
+
+    if changed:
+        await db.commit()
+    
+    return appointments
 
 
 @router.post("", response_model=AppointmentResponse, status_code=201)
@@ -163,8 +193,34 @@ async def create_appointment(
             status_code=409,
             detail=f"Конфликт времени. С учётом перерыва между занятиями ближайшее доступное время: {conflict_time}"
         )
-    appointment = Appointment(**data.model_dump())
+    # Проверка или создание клиента
+    client_query = select(Client).where(Client.full_name == data.client_name)
+    client_result = await db.execute(client_query)
+    client = client_result.scalar_one_or_none()
+
+    if not client:
+        client = Client(full_name=data.client_name, phone=data.client_phone)
+        db.add(client)
+        await db.commit()
+        await db.refresh(client)
+
+    appt_data = data.model_dump()
+    appt_data["client_id"] = client.id
+
+    appointment = Appointment(**appt_data)
     db.add(appointment)
+    
+    # Sell package if requested
+    if data.sessions_count:
+        client.sessions_balance += data.sessions_count
+        package = Package(
+            client_id=client.id,
+            sessions_count=data.sessions_count,
+            amount_paid=data.price if data.is_paid else None,
+            date_purchased=date.today()
+        )
+        db.add(package)
+    
     await db.commit()
     await db.refresh(appointment)
     return appointment
@@ -230,6 +286,24 @@ async def update_appointment(
 
     for key, value in update_data.items():
         setattr(appointment, key, value)
+
+    # Синхронизация клиента
+    if "client_name" in update_data or "client_phone" in update_data:
+        client_query = select(Client).where(Client.full_name == appointment.client_name)
+        client_result = await db.execute(client_query)
+        client = client_result.scalar_one_or_none()
+
+        if not client:
+            client = Client(full_name=appointment.client_name, phone=appointment.client_phone)
+            db.add(client)
+            await db.commit()
+            await db.refresh(client)
+        else:
+            if appointment.client_phone and client.phone != appointment.client_phone:
+                client.phone = appointment.client_phone
+                await db.commit()
+        
+        appointment.client_id = client.id
 
     appointment.updated_at = datetime.utcnow()
     await db.commit()

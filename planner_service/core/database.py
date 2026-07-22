@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
-
 from planner_service.core.config import settings
 
 engine = create_async_engine(
@@ -26,6 +25,13 @@ async def get_db():
 
 
 async def init_db():
+    from planner_service.models.client import Client
+    from planner_service.models.package import Package
+    from planner_service.models.expense import Expense
+    from planner_service.models.income import Income
+    from planner_service.models.appointment import Appointment
+    from planner_service.models.admin import AdminUser
+    
     """Создание всех таблиц."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

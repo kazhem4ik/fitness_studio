@@ -1,4 +1,4 @@
-﻿import csv
+import csv
 import io
 from datetime import date, datetime, timedelta
 from typing import Optional, List
@@ -13,6 +13,7 @@ from planner_service.core.database import get_db
 from planner_service.core.security import decode_access_token
 from planner_service.models.appointment import Appointment
 from planner_service.models.expense import Expense
+from planner_service.models.income import Income
 
 router = APIRouter(prefix="/api/finances", tags=["finances"])
 
@@ -47,6 +48,21 @@ class ExpenseCreate(BaseModel):
     comment: Optional[str] = None
     is_recurring: bool = False
     recurrence_day: Optional[int] = None
+
+class IncomeCreate(BaseModel):
+    date: date
+    amount: float
+    category: str
+    comment: Optional[str] = None
+
+class IncomeResponse(BaseModel):
+    id: int
+    date: date
+    amount: float
+    category: str
+    comment: Optional[str]
+    created_at: datetime
+    model_config = {"from_attributes": True}
 
 class ExpenseUpdate(BaseModel):
     date: Optional[date] = None
@@ -92,7 +108,7 @@ async def get_summary(
     """Сводка: доходы / расходы / прибыль за период."""
     date_from, date_to = _period_range(period)
 
-    # Доходы (оплаченные записи)
+    # Доходы (оплаченные записи + ручные доходы)
     income_result = await db.execute(
         select(func.coalesce(func.sum(Appointment.price), 0.0)).where(
             and_(
@@ -103,7 +119,15 @@ async def get_summary(
             )
         )
     )
-    income = float(income_result.scalar())
+    income_auto = float(income_result.scalar())
+    
+    income_manual_result = await db.execute(
+        select(func.coalesce(func.sum(Income.amount), 0.0)).where(
+            and_(Income.date >= date_from, Income.date <= date_to)
+        )
+    )
+    income_manual = float(income_manual_result.scalar())
+    income = income_auto + income_manual
 
     # Расходы
     expense_result = await db.execute(
@@ -151,6 +175,12 @@ async def get_summary(
                 )
             )
         )
+        inc_m_r = await db.execute(
+            select(func.coalesce(func.sum(Income.amount), 0.0)).where(
+                and_(Income.date >= month_start, Income.date <= month_end)
+            )
+        )
+        
         exp_r = await db.execute(
             select(func.coalesce(func.sum(Expense.amount), 0.0)).where(
                 and_(Expense.date >= month_start, Expense.date <= month_end)
@@ -158,7 +188,7 @@ async def get_summary(
         )
         months_data.append({
             "label": month_start.strftime("%b %Y"),
-            "income": float(inc_r.scalar()),
+            "income": float(inc_r.scalar()) + float(inc_m_r.scalar()),
             "expenses": float(exp_r.scalar()),
         })
 
@@ -192,17 +222,38 @@ async def get_income(
     query = query.order_by(Appointment.date.desc())
     result = await db.execute(query)
     appointments = result.scalars().all()
-    return [
+    
+    inc_query = select(Income)
+    if date_from:
+        inc_query = inc_query.where(Income.date >= date_from)
+    if date_to:
+        inc_query = inc_query.where(Income.date <= date_to)
+    inc_query = inc_query.order_by(Income.date.desc())
+    inc_result = await db.execute(inc_query)
+    manual_incomes = inc_result.scalars().all()
+    
+    items = [
         {
             "id": a.id,
             "date": str(a.date),
-            "client_name": a.client_name,
+            "category": "Клиент: " + a.client_name,
             "amount": a.price,
-            "payment_method": a.payment_method,
-            "training_type": a.training_type,
+            "type": "income"
         }
         for a in appointments
     ]
+    items += [
+        {
+            "id": m.id,
+            "date": str(m.date),
+            "category": m.category,
+            "amount": m.amount,
+            "type": "income"
+        }
+        for m in manual_incomes
+    ]
+    items.sort(key=lambda x: x["date"], reverse=True)
+    return items
 
 
 @router.get("/expenses", response_model=List[ExpenseResponse])
@@ -238,6 +289,19 @@ async def create_expense(
     await db.commit()
     await db.refresh(expense)
     return expense
+
+@router.post("/incomes", response_model=IncomeResponse, status_code=201)
+async def create_income(
+    data: IncomeCreate,
+    db: AsyncSession = Depends(get_db),
+    _auth: dict = Depends(require_auth),
+):
+    """Добавить ручной доход."""
+    income = Income(**data.model_dump())
+    db.add(income)
+    await db.commit()
+    await db.refresh(income)
+    return income
 
 
 @router.put("/expenses/{expense_id}", response_model=ExpenseResponse)
@@ -294,6 +358,14 @@ async def export_csv(
     income_res = await db.execute(income_query.order_by(Appointment.date))
     incomes = income_res.scalars().all()
 
+    inc_manual_query = select(Income)
+    if date_from:
+        inc_manual_query = inc_manual_query.where(Income.date >= date_from)
+    if date_to:
+        inc_manual_query = inc_manual_query.where(Income.date <= date_to)
+    inc_manual_res = await db.execute(inc_manual_query.order_by(Income.date))
+    manual_incomes = inc_manual_res.scalars().all()
+
     # Расходы
     expense_query = select(Expense)
     if date_from:
@@ -307,9 +379,11 @@ async def export_csv(
     writer = csv.writer(output)
 
     writer.writerow(["=== ДОХОДЫ ==="])
-    writer.writerow(["Дата", "Клиент", "Сумма", "Способ оплаты", "Тип тренировки"])
+    writer.writerow(["Дата", "Категория/Клиент", "Сумма", "Способ оплаты", "Тренировка"])
     for a in incomes:
         writer.writerow([a.date, a.client_name, a.price or 0, a.payment_method or "", a.training_type or ""])
+    for m in manual_incomes:
+        writer.writerow([m.date, m.category, m.amount, "", "Ручной доход"])
 
     writer.writerow([])
     writer.writerow(["=== РАСХОДЫ ==="])

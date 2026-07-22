@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase
 class Base(DeclarativeBase):
     pass
 
-DATABASE_URL = "sqlite+aiosqlite:///database/studio.db"
+DATABASE_URL = "sqlite+aiosqlite:////database/studio.db"
 
 engine = create_async_engine(
     DATABASE_URL,
