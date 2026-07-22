@@ -6,3 +6,4 @@ sqlalchemy
 aiosqlite
 bcrypt
 PyJWT
+pywebpush

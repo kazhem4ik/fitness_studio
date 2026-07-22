@@ -31,6 +31,7 @@ async def init_db():
     from planner_service.models.income import Income
     from planner_service.models.appointment import Appointment
     from planner_service.models.admin import AdminUser
+    from planner_service.models.push_subscription import PushSubscription
     
     """Создание всех таблиц."""
     async with engine.begin() as conn:

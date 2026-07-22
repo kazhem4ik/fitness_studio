@@ -29,10 +29,12 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_PUBLIC_KEY: str = ""
 
-    # Буферы времени для записей
-    SLOT_DURATION: int = 60      # Длительность тренировки в минутах
-    BUFFER_BEFORE: int = 10      # Буфер ДО тренировки (переодевание клиента)
-    BUFFER_AFTER: int = 20       # Буфер ПОСЛЕ тренировки (душ и переодевание)
+    # Настройки расписания
+    SLOT_DURATION: int = 60      # Длительность слота в минутах
+    BUFFER_BEFORE: int = 10      # Окно до (не используется)
+    BUFFER_AFTER: int = 20       # Окно после
+    STUDIO_OPEN_TIME: str = "10:00"
+    STUDIO_CLOSE_TIME: str = "20:00"
 
     model_config = SettingsConfigDict(
         env_file=".env",

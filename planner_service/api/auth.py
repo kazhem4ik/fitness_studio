@@ -77,3 +77,46 @@ async def me(request: Request, db: AsyncSession = Depends(get_db)):
         "login": admin.login,
         "display_name": admin.display_name,
     }
+
+
+@router.get("/push/vapid-public-key")
+async def get_vapid_public_key(request: Request):
+    """Отдает VAPID публичный ключ для подписки на Web Push."""
+    token = request.cookies.get(COOKIE_NAME)
+    if not token or not decode_access_token(token):
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    from planner_service.core.config import settings
+    return {"public_key": settings.VAPID_PUBLIC_KEY}
+
+class PushSubscriptionRequest(BaseModel):
+    endpoint: str
+    keys: dict
+
+@router.post("/push/subscribe")
+async def push_subscribe(req: PushSubscriptionRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Сохраняем подписку на Web Push."""
+    token = request.cookies.get(COOKIE_NAME)
+    if not token or not decode_access_token(token):
+        raise HTTPException(status_code=401, detail="Не авторизован")
+        
+    from planner_service.models.push_subscription import PushSubscription
+    
+    # Check if exists
+    result = await db.execute(select(PushSubscription).where(PushSubscription.endpoint == req.endpoint))
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        existing.p256dh = req.keys.get("p256dh", "")
+        existing.auth = req.keys.get("auth", "")
+    else:
+        new_sub = PushSubscription(
+            endpoint=req.endpoint,
+            p256dh=req.keys.get("p256dh", ""),
+            auth=req.keys.get("auth", "")
+        )
+        db.add(new_sub)
+        
+    await db.commit()
+    return {"success": True, "message": "Подписка оформлена"}
+
