@@ -192,13 +192,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             const res = await fetch('/clients/api/auth/push/vapid-public-key?_t=' + Date.now());
             if (!res.ok) throw new Error('No VAPID key');
             const data = await res.json();
-            const pubKey = data.public_key;
+            const pubKey = data.public_key.trim();
             
-            const applicationServerKey = urlB64ToUint8Array(pubKey);
-            subscription = await swRegistration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey
-            });
+            const uint8ArrayKey = urlB64ToUint8Array(pubKey);
+            
+            // Пытаемся подписаться, перебирая разные форматы ключа
+            try {
+                // Сначала пробуем стандартный Uint8Array
+                subscription = await swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: uint8ArrayKey
+                });
+            } catch (err1) {
+                console.warn('subscribe with Uint8Array failed:', err1);
+                try {
+                    // Если не вышло (ошибка iOS), пробуем передать сырой ArrayBuffer
+                    subscription = await swRegistration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: uint8ArrayKey.buffer
+                    });
+                } catch (err2) {
+                    console.warn('subscribe with ArrayBuffer failed:', err2);
+                    // Если и это не вышло, пробуем передать просто строку (DOMString, поддерживается в iOS 16.4+)
+                    subscription = await swRegistration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: pubKey
+                    });
+                }
+            }
 
             await fetch('/clients/api/auth/push/subscribe', {
                 method: 'POST',
