@@ -204,7 +204,6 @@ const Appointments = {
 
         // Закрытие модалки
         document.getElementById('modal-close').addEventListener('click', () => this.closeModal());
-        document.querySelector('.modal-overlay').addEventListener('click', () => this.closeModal());
 
         // Сохранение
         document.getElementById('appointment-form').addEventListener('submit', (e) => {

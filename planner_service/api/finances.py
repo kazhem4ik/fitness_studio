@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import date, datetime, timedelta
+from datetime import date as dt_date, datetime, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
@@ -42,7 +42,7 @@ async def require_auth(request: Request):
 # --- Schemas ---
 
 class ExpenseCreate(BaseModel):
-    date: date
+    date: dt_date
     amount: float
     category: str
     comment: Optional[str] = None
@@ -50,14 +50,14 @@ class ExpenseCreate(BaseModel):
     recurrence_day: Optional[int] = None
 
 class IncomeCreate(BaseModel):
-    date: date
+    date: dt_date
     amount: float
     category: str
     comment: Optional[str] = None
 
 class IncomeResponse(BaseModel):
     id: int
-    date: date
+    date: dt_date
     amount: float
     category: str
     comment: Optional[str]
@@ -65,7 +65,7 @@ class IncomeResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class ExpenseUpdate(BaseModel):
-    date: Optional[date] = None
+    date: Optional[dt_date] = None
     amount: Optional[float] = None
     category: Optional[str] = None
     comment: Optional[str] = None
@@ -74,7 +74,7 @@ class ExpenseUpdate(BaseModel):
 
 class ExpenseResponse(BaseModel):
     id: int
-    date: date
+    date: dt_date
     amount: float
     category: str
     comment: Optional[str]
@@ -84,17 +84,20 @@ class ExpenseResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-def _period_range(period: str) -> tuple[date, date]:
+def _period_range(period: str) -> tuple[dt_date, dt_date]:
     """Возвращает (date_from, date_to) для периода day/week/month."""
-    today = date.today()
+    today = dt_date.today()
     if period == "day":
         return today, today
     elif period == "week":
         start = today - timedelta(days=today.weekday())
-        return start, today
+        end = start + timedelta(days=6)
+        return start, end
     else:  # month
         start = today.replace(day=1)
-        return start, today
+        next_month = start.replace(day=28) + timedelta(days=4)
+        end = next_month - timedelta(days=next_month.day)
+        return start, end
 
 
 # --- Endpoints ---
@@ -152,18 +155,18 @@ async def get_summary(
     months_data = []
     for i in range(11, -1, -1):
         # i месяцев назад
-        pivot = date.today()
+        pivot = dt_date.today()
         m = pivot.month - i
         y = pivot.year
         while m <= 0:
             m += 12
             y -= 1
-        month_start = date(y, m, 1)
+        month_start = dt_date(y, m, 1)
         # конец месяца
         if m == 12:
-            month_end = date(y + 1, 1, 1) - timedelta(days=1)
+            month_end = dt_date(y + 1, 1, 1) - timedelta(days=1)
         else:
-            month_end = date(y, m + 1, 1) - timedelta(days=1)
+            month_end = dt_date(y, m + 1, 1) - timedelta(days=1)
 
         inc_r = await db.execute(
             select(func.coalesce(func.sum(Appointment.price), 0.0)).where(
@@ -206,8 +209,8 @@ async def get_summary(
 
 @router.get("/income")
 async def get_income(
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: Optional[dt_date] = None,
+    date_to: Optional[dt_date] = None,
     db: AsyncSession = Depends(get_db),
     _auth: dict = Depends(require_auth),
 ):
@@ -258,8 +261,8 @@ async def get_income(
 
 @router.get("/expenses", response_model=List[ExpenseResponse])
 async def get_expenses(
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: Optional[dt_date] = None,
+    date_to: Optional[dt_date] = None,
     category: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     _auth: dict = Depends(require_auth),
@@ -341,8 +344,8 @@ async def delete_expense(
 
 @router.get("/export")
 async def export_csv(
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: Optional[dt_date] = None,
+    date_to: Optional[dt_date] = None,
     db: AsyncSession = Depends(get_db),
     _auth: dict = Depends(require_auth),
 ):

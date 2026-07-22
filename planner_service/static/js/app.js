@@ -46,6 +46,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         dropdown.classList.add('hidden');
     });
 
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (!modal) return;
+            const closeBtnId = 
+                modal.id === 'appointment-modal' ? 'modal-close' :
+                modal.id === 'client-modal' ? 'client-modal-close' :
+                modal.id === 'client-details-modal' ? 'cd-btn-close' :
+                modal.id === 'client-select-modal' ? 'cs-btn-close' : null;
+            if (closeBtnId) {
+                const btn = document.getElementById(closeBtnId);
+                if (btn) btn.click();
+            }
+        });
+    });
+
     // Проверяем авторизацию
     const isAuth = await Auth.checkAuth();
     if (isAuth) {
@@ -57,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // При успешном логине
     window.addEventListener('app:ready', () => {
-        Calendar.render();
+        Calendar.switchView('month');
     });
 
     // Service Worker registration

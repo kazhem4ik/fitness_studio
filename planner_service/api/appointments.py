@@ -1,4 +1,4 @@
-from datetime import date, time, datetime, timedelta
+from datetime import date as dt_date, time as dt_time, datetime, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -20,9 +20,9 @@ COOKIE_NAME = "planner_token"
 
 async def check_buffer_conflict(
     db: AsyncSession,
-    appt_date: date,
-    appt_time_start: time,
-    appt_time_end: time,
+    appt_date: dt_date,
+    appt_time_start: dt_time,
+    appt_time_end: dt_time,
     exclude_id: Optional[int] = None,
 ) -> Optional[str]:
     """
@@ -77,9 +77,9 @@ async def require_auth(request: Request):
 class AppointmentCreate(BaseModel):
     client_name: str
     client_phone: Optional[str] = None
-    date: date
-    time_start: time
-    time_end: time
+    date: dt_date
+    time_start: dt_time
+    time_end: dt_time
     training_type: Optional[str] = None
     notes: Optional[str] = None
     price: Optional[float] = None
@@ -92,9 +92,9 @@ class AppointmentCreate(BaseModel):
 class AppointmentUpdate(BaseModel):
     client_name: Optional[str] = None
     client_phone: Optional[str] = None
-    date: Optional[date] = None
-    time_start: Optional[time] = None
-    time_end: Optional[time] = None
+    date: Optional[dt_date] = None
+    time_start: Optional[dt_time] = None
+    time_end: Optional[dt_time] = None
     training_type: Optional[str] = None
     notes: Optional[str] = None
     price: Optional[float] = None
@@ -108,9 +108,9 @@ class AppointmentResponse(BaseModel):
     id: int
     client_name: str
     client_phone: Optional[str]
-    date: date
-    time_start: time
-    time_end: time
+    date: dt_date
+    time_start: dt_time
+    time_end: dt_time
     training_type: Optional[str]
     notes: Optional[str]
     price: Optional[float]
@@ -128,9 +128,9 @@ class AppointmentResponse(BaseModel):
 
 @router.get("", response_model=List[AppointmentResponse])
 async def get_appointments(
-    target_date: Optional[date] = None,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    target_date: Optional[dt_date] = None,
+    date_from: Optional[dt_date] = None,
+    date_to: Optional[dt_date] = None,
     db: AsyncSession = Depends(get_db),
     _auth: dict = Depends(require_auth),
 ):
@@ -205,19 +205,20 @@ async def create_appointment(
         await db.refresh(client)
 
     appt_data = data.model_dump()
+    sessions_count = appt_data.pop("sessions_count", None)
     appt_data["client_id"] = client.id
 
     appointment = Appointment(**appt_data)
     db.add(appointment)
     
     # Sell package if requested
-    if data.sessions_count:
-        client.sessions_balance += data.sessions_count
+    if sessions_count:
+        client.sessions_balance += sessions_count
         package = Package(
             client_id=client.id,
             sessions_count=data.sessions_count,
             amount_paid=data.price if data.is_paid else None,
-            date_purchased=date.today()
+            purchased_at=dt_date.today()
         )
         db.add(package)
     

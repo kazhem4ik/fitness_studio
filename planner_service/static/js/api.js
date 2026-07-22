@@ -28,7 +28,8 @@ const API = {
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({ detail: 'Ошибка сервера' }));
-            throw new Error(err.detail || `HTTP ${response.status}`);
+            const errMsg = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
+            throw new Error(errMsg || `HTTP ${response.status}`);
         }
 
         // Пустой ответ (204 и т.д.)
