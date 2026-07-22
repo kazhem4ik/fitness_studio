@@ -5,4 +5,5 @@ aiosqlite
 pydantic-settings
 bcrypt
 PyJWT
+pywebpush
 httpx
