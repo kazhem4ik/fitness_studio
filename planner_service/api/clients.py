@@ -119,16 +119,15 @@ async def get_client(
 ):
     """Детали клиента: карточка + история абонементов."""
     from sqlalchemy.orm import selectinload
-    result = await db.execute(select(Client).options(selectinload(Client.packages)).where(Client.id == client_id))
+    result = await db.execute(
+        select(Client).options(selectinload(Client.packages)).where(Client.id == client_id)
+    )
     client = result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")
 
-    # Загружаем пакеты
-    pkgs_result = await db.execute(
-        select(Package).where(Package.client_id == client_id).order_by(Package.purchased_at.desc())
-    )
-    packages = pkgs_result.scalars().all()
+    # Сортируем пакеты по дате убывания
+    packages = sorted(client.packages, key=lambda p: p.purchased_at, reverse=True)
 
     resp = ClientDetailResponse.model_validate(client)
     resp.packages = [PackageResponse.model_validate(p) for p in packages]
@@ -151,6 +150,21 @@ async def update_client(
         setattr(client, key, value)
     await db.commit()
     await db.refresh(client)
+
+    # Синхронизируем имя/телефон в записях (Appointment)
+    from sqlalchemy import update
+    if data.full_name is not None or data.phone is not None:
+        upd_data = {}
+        if data.full_name is not None:
+            upd_data["client_name"] = data.full_name
+        if data.phone is not None:
+            upd_data["client_phone"] = data.phone
+        
+        await db.execute(
+            update(Appointment).where(Appointment.client_id == client_id).values(**upd_data)
+        )
+        await db.commit()
+
     return client
 
 
