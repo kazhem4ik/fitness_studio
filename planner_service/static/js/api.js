@@ -68,6 +68,10 @@ const API = {
         return this.request('PUT', `/appointments/${id}`, data);
     },
 
+    updateAttendance(id, status) {
+        return this.request('PATCH', `/appointments/${id}/attendance`, { status });
+    },
+
     deleteAppointment(id) {
         return this.request('DELETE', `/appointments/${id}`);
     },
@@ -87,6 +91,10 @@ const API = {
 
     getClientDetails(id) {
         return this.request('GET', `/clients/${id}`);
+    },
+
+    getClientAppointments(id) {
+        return this.request('GET', `/clients/${id}/appointments`);
     },
 
     addPackage(clientId, data) {
@@ -122,8 +130,24 @@ const API = {
         return this.request('POST', '/finances/expenses', data);
     },
     
+    updateExpense(id, data) {
+        return this.request('PUT', `/finances/expenses/${id}`, data);
+    },
+    
+    deleteExpense(id) {
+        return this.request('DELETE', `/finances/expenses/${id}`);
+    },
+    
     addIncome(data) {
         return this.request('POST', '/finances/incomes', data);
+    },
+
+    updateIncome(id, data) {
+        return this.request('PUT', `/finances/incomes/${id}`, data);
+    },
+    
+    deleteIncome(id) {
+        return this.request('DELETE', `/finances/incomes/${id}`);
     },
 
     // --- Client name suggestions ---
@@ -131,4 +155,20 @@ const API = {
         const qs = query ? `?q=${encodeURIComponent(query)}` : '';
         return this.request('GET', `/appointments/clients${qs}`);
     },
+
+    // --- Admin (User Management) ---
+    admin: {
+        getTrainers() {
+            return API.request('GET', '/admin/trainers');
+        },
+        createTrainer(data) {
+            return API.request('POST', '/admin/trainers', data);
+        },
+        updateTrainer(id, data) {
+            return API.request('PUT', `/admin/trainers/${id}`, data);
+        },
+        deleteTrainer(id) {
+            return API.request('DELETE', `/admin/trainers/${id}`);
+        }
+    }
 };

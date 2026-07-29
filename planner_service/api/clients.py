@@ -81,13 +81,21 @@ class ClientDetailResponse(ClientResponse):
 async def get_clients(
     q: str = "",
     active_only: bool = False,
+    deleted: bool = False,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
-    """Список клиентов (с поиском по имени/телефону)."""
-    query = select(Client)
-    if active_only:
-        query = query.where(Client.is_active == True)
+    """Список клиентов текущего тренера (с поиском по имени/телефону)."""
+    trainer_id = int(auth["sub"])
+    query = select(Client).where(Client.trainer_id == trainer_id)
+    
+    if deleted:
+        query = query.where(Client.deleted_at.is_not(None))
+    else:
+        query = query.where(Client.deleted_at.is_(None))
+        if active_only:
+            query = query.where(Client.is_active == True)
+            
     if q:
         query = query.where(
             Client.full_name.ilike(f"%{q}%") | Client.phone.ilike(f"%{q}%")
@@ -96,15 +104,83 @@ async def get_clients(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.delete("/trash/empty")
+async def empty_trash(
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_auth),
+):
+    """Очистить корзину удаленных клиентов."""
+    trainer_id = int(auth["sub"])
+    result = await db.execute(
+        select(Client).where(Client.trainer_id == trainer_id, Client.deleted_at.is_not(None))
+    )
+    clients = result.scalars().all()
+    for client in clients:
+        await db.delete(client)
+    await db.commit()
+    return {"success": True}
+
+@router.delete("/{client_id}")
+async def delete_client(
+    client_id: int,
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_auth),
+):
+    """Мягкое удаление клиента (в корзину)."""
+    trainer_id = int(auth["sub"])
+    result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+    )
+    client = result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    client.deleted_at = datetime.utcnow()
+    await db.commit()
+    return {"success": True}
+
+@router.post("/{client_id}/restore")
+async def restore_client(
+    client_id: int,
+    db: AsyncSession = Depends(get_db),
+    auth: dict = Depends(require_auth),
+):
+    """Восстановление клиента из корзины."""
+    trainer_id = int(auth["sub"])
+    result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+    )
+    client = result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    client.deleted_at = None
+    await db.commit()
+    return {"success": True}
+
 
 @router.post("", response_model=ClientResponse, status_code=201)
 async def create_client(
     data: ClientCreate,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
     """Создать карточку клиента."""
-    client = Client(**data.model_dump())
+    trainer_id = int(auth["sub"])
+    
+    # Check if client with same name is in trash
+    existing = await db.execute(
+        select(Client).where(
+            Client.full_name == data.full_name,
+            Client.trainer_id == trainer_id,
+            Client.deleted_at.is_not(None)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Клиент с таким именем находится в корзине. Восстановите его в разделе 'Клиенты' (иконка корзины), либо используйте другое имя."
+        )
+        
+    client = Client(trainer_id=trainer_id, **data.model_dump())
     db.add(client)
     await db.commit()
     await db.refresh(client)
@@ -115,18 +191,20 @@ async def create_client(
 async def get_client(
     client_id: int,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
-    """Детали клиента: карточка + история абонементов."""
+    """Детали клиента: карточка + история абонементов (только свой клиент)."""
+    trainer_id = int(auth["sub"])
     from sqlalchemy.orm import selectinload
     result = await db.execute(
-        select(Client).options(selectinload(Client.packages)).where(Client.id == client_id)
+        select(Client)
+        .options(selectinload(Client.packages))
+        .where(Client.id == client_id, Client.trainer_id == trainer_id)
     )
     client = result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")
 
-    # Сортируем пакеты по дате убывания
     packages = sorted(client.packages, key=lambda p: p.purchased_at, reverse=True)
 
     resp = ClientDetailResponse.model_validate(client)
@@ -139,10 +217,13 @@ async def update_client(
     client_id: int,
     data: ClientUpdate,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
-    """Обновить карточку клиента."""
-    result = await db.execute(select(Client).where(Client.id == client_id))
+    """Обновить карточку клиента (только свою)."""
+    trainer_id = int(auth["sub"])
+    result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+    )
     client = result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -159,9 +240,11 @@ async def update_client(
             upd_data["client_name"] = data.full_name
         if data.phone is not None:
             upd_data["client_phone"] = data.phone
-        
+
         await db.execute(
-            update(Appointment).where(Appointment.client_id == client_id).values(**upd_data)
+            update(Appointment)
+            .where(Appointment.client_id == client_id, Appointment.trainer_id == trainer_id)
+            .values(**upd_data)
         )
         await db.commit()
 
@@ -173,10 +256,13 @@ async def add_package(
     client_id: int,
     data: PackageCreate,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
     """Продать абонемент клиенту — пополнить баланс занятий."""
-    result = await db.execute(select(Client).where(Client.id == client_id))
+    trainer_id = int(auth["sub"])
+    result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+    )
     client = result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -201,13 +287,16 @@ async def mark_attended(
     client_id: int,
     appointment_id: int,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
     """
     Отметить тренировку как «проведена» — списывает 1 занятие с баланса клиента.
     Идемпотентен: повторный вызов не списывает занятие повторно.
     """
-    result = await db.execute(select(Client).where(Client.id == client_id))
+    trainer_id = int(auth["sub"])
+    result = await db.execute(
+        select(Client).where(Client.id == client_id, Client.trainer_id == trainer_id)
+    )
     client = result.scalar_one_or_none()
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")
@@ -216,6 +305,7 @@ async def mark_attended(
         select(Appointment).where(
             Appointment.id == appointment_id,
             Appointment.client_id == client_id,
+            Appointment.trainer_id == trainer_id,
         )
     )
     appointment = appt_result.scalar_one_or_none()
@@ -226,11 +316,9 @@ async def mark_attended(
         appointment.is_attended = True
         appointment.updated_at = datetime.utcnow()
 
-        # Списываем занятие (не уходим в минус)
         if client.sessions_balance > 0:
             client.sessions_balance -= 1
 
-        # Обновляем last_visit_at
         client.last_visit_at = datetime.utcnow()
 
         await db.commit()
@@ -243,12 +331,16 @@ async def mark_attended(
 async def get_client_appointments(
     client_id: int,
     db: AsyncSession = Depends(get_db),
-    _auth: dict = Depends(require_auth),
+    auth: dict = Depends(require_auth),
 ):
     """История записей клиента."""
+    trainer_id = int(auth["sub"])
     result = await db.execute(
         select(Appointment)
-        .where(Appointment.client_id == client_id, Appointment.is_cancelled == False)
+        .where(
+            Appointment.client_id == client_id,
+            Appointment.trainer_id == trainer_id,
+        )
         .order_by(Appointment.date.desc(), Appointment.time_start.desc())
     )
     appointments = result.scalars().all()
@@ -261,8 +353,12 @@ async def get_client_appointments(
             "training_type": a.training_type,
             "is_attended": a.is_attended,
             "is_no_show": a.is_no_show,
+            "is_cancelled": a.is_cancelled,
             "is_paid": a.is_paid,
             "price": a.price,
         }
         for a in appointments
     ]
+
+
+

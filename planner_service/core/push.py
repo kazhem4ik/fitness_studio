@@ -10,13 +10,27 @@ from planner_service.models.push_subscription import PushSubscription
 logger = logging.getLogger(__name__)
 
 
-async def send_push_notification(db: AsyncSession, title: str, body: str, url: str = "/clients/"):
-    """Отправляет Web Push всем подписанным администраторам."""
+async def send_push_notification(
+    db: AsyncSession,
+    title: str,
+    body: str,
+    url: str = "/clients/",
+    trainer_id: int | None = None,
+):
+    """
+    Отправляет Web Push уведомление.
+    Если trainer_id указан — только подписки этого тренера.
+    Если None — всем (fallback для обратной совместимости).
+    """
     if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
         logger.warning("VAPID keys not configured, skipping push notification.")
         return
 
-    result = await db.execute(select(PushSubscription))
+    query = select(PushSubscription)
+    if trainer_id is not None:
+        query = query.where(PushSubscription.trainer_id == trainer_id)
+
+    result = await db.execute(query)
     subscriptions = result.scalars().all()
 
     payload = json.dumps({
@@ -47,7 +61,9 @@ async def send_push_notification(db: AsyncSession, title: str, body: str, url: s
             logger.info(f"Push notification sent to {sub.endpoint}")
         except WebPushException as ex:
             logger.error(f"Push failed: {repr(ex)}")
-            # Optional: remove expired subscription if ex.response.status_code == 410
             if ex.response and ex.response.status_code == 410:
                 await db.delete(sub)
                 await db.commit()
+
+
+

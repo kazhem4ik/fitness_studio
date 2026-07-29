@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    const trainerSelect = document.getElementById('trainer-select');
     const dateInput = document.getElementById('date-select');
     const slotsContainer = document.getElementById('slots-container');
     const nameInput = document.getElementById('client-name');
@@ -15,20 +16,46 @@ document.addEventListener('DOMContentLoaded', () => {
     dateInput.min = localISOTime;
     dateInput.value = localISOTime;
 
-    // Загрузка слотов при смене даты
+    // Загрузка тренеров
+    try {
+        const response = await fetch('/api/public/trainers');
+        if (!response.ok) throw new Error();
+        const trainers = await response.json();
+        
+        trainerSelect.innerHTML = '<option value="" disabled selected>Выберите тренера</option>' + 
+            trainers.map(t => `<option value="${t.id}">${t.display_name}</option>`).join('');
+            
+        if (trainers.length === 1) {
+            trainerSelect.value = trainers[0].id;
+        }
+    } catch (err) {
+        trainerSelect.innerHTML = '<option value="" disabled>Ошибка загрузки</option>';
+    }
+
+    // Слушатели
+    trainerSelect.addEventListener('change', loadSlots);
     dateInput.addEventListener('change', loadSlots);
-    loadSlots(); // первичная загрузка
+    
+    // Если тренер уже выбран (например, единственный), грузим слоты
+    if (trainerSelect.value) {
+        loadSlots();
+    }
 
     async function loadSlots() {
         const date = dateInput.value;
-        if (!date) return;
+        const trainerId = trainerSelect.value;
+        
+        if (!date || !trainerId) {
+            slotsContainer.innerHTML = '<div class="loading">Выберите тренера и дату</div>';
+            return;
+        }
         
         slotsContainer.innerHTML = '<div class="loading">Загрузка слотов...</div>';
         selectedTime = null;
         validateForm();
 
         try {
-            const response = await fetch(`/api/public/slots?d=${date}`);
+            const response = await fetch(`/api/public/slots?d=${date}&trainer_id=${trainerId}`);
             if (!response.ok) throw new Error('Ошибка сервера');
             const slots = await response.json();
             
@@ -63,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Маска телефона (автоформат +7)
+    // Маска телефона
     phoneInput.addEventListener('input', function(e) {
         let val = this.value.replace(/\D/g, '');
         if (val.length === 0) {
@@ -91,11 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const phoneRaw = phoneInput.value.replace(/\D/g, '');
         const isPhoneValid = phoneRaw.length === 11;
         const isNameValid = nameInput.value.trim().length >= 2;
+        const isTrainerSelected = !!trainerSelect.value;
         
-        submitBtn.disabled = !(selectedTime && isPhoneValid && isNameValid);
+        submitBtn.disabled = !(selectedTime && isPhoneValid && isNameValid && isTrainerSelected);
     }
 
-    // Отправка формы
+    // Отправка
     submitBtn.addEventListener('click', async () => {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Отправка...';
@@ -110,7 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     date: dateInput.value,
                     time: selectedTime,
                     client_name: nameInput.value.trim(),
-                    client_phone: '+' + phoneInput.value.replace(/\D/g, '')
+                    client_phone: '+' + phoneInput.value.replace(/\D/g, ''),
+                    trainer_id: parseInt(trainerSelect.value, 10)
                 })
             });
 
@@ -120,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.detail || 'Ошибка при записи');
             }
 
-            // Успех
             document.getElementById('booking-form-container').style.display = 'none';
             document.getElementById('success-container').style.display = 'block';
 

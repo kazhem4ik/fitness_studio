@@ -12,6 +12,7 @@ const Appointments = {
         this.editingId = null;
         document.getElementById('modal-title').textContent = 'Новая запись';
         document.getElementById('btn-delete-apt').classList.add('hidden');
+        document.getElementById('apt-attendance-actions').classList.add('hidden');
         document.getElementById('btn-save-apt').textContent = 'Сохранить';
 
         // Очистка формы
@@ -55,14 +56,35 @@ const Appointments = {
         document.getElementById('apt-time-end').value = apt.time_end.substring(0, 5);
         document.getElementById('apt-training-type').value = apt.training_type || '';
         document.getElementById('apt-notes').value = apt.notes || '';
-        document.getElementById('apt-price').value = apt.price || '';
-        document.getElementById('apt-payment-method').value = apt.payment_method || '';
-        document.getElementById('apt-is-paid').checked = apt.is_paid;
+
+        const actionsDiv = document.getElementById('apt-attendance-actions');
         
-        const sessionsEl = document.getElementById('apt-sessions-count');
-        if (sessionsEl) {
-            sessionsEl.value = '';
-            sessionsEl.closest('.form-group').style.display = 'none'; // Скрываем при редактировании
+        const now = new Date();
+        const aptDateTime = new Date(`${apt.date}T${apt.time_start}`);
+        if (now < aptDateTime && !apt.is_attended && !apt.is_no_show) {
+            actionsDiv.classList.add('hidden');
+        } else {
+            actionsDiv.classList.remove('hidden');
+        }
+        
+        const btnNoShow = document.getElementById('btn-apt-no-show');
+        const btnAttended = document.getElementById('btn-apt-attended');
+        const btnPending = document.getElementById('btn-apt-pending');
+        
+        btnNoShow.className = apt.is_no_show ? 'btn-primary' : 'btn btn-outline';
+        btnNoShow.style.backgroundColor = apt.is_no_show ? '#ef4444' : 'transparent';
+        btnNoShow.style.borderColor = '#ef4444';
+        btnNoShow.style.color = apt.is_no_show ? '#fff' : '#ef4444';
+        
+        btnAttended.className = apt.is_attended ? 'btn-primary' : 'btn btn-outline';
+        btnAttended.style.backgroundColor = apt.is_attended ? '#22c55e' : 'transparent';
+        btnAttended.style.borderColor = '#22c55e';
+        btnAttended.style.color = apt.is_attended ? '#fff' : '#22c55e';
+        
+        if (apt.is_no_show || apt.is_attended) {
+            btnPending.classList.remove('hidden');
+        } else {
+            btnPending.classList.add('hidden');
         }
 
         this.showModal();
@@ -107,15 +129,7 @@ const Appointments = {
             time_end: document.getElementById('apt-time-end').value + ':00',
             training_type: document.getElementById('apt-training-type').value || null,
             notes: document.getElementById('apt-notes').value.trim() || null,
-            price: parseFloat(document.getElementById('apt-price').value) || null,
-            payment_method: document.getElementById('apt-payment-method').value || null,
-            is_paid: document.getElementById('apt-is-paid').checked,
         };
-        
-        const sessionsCount = document.getElementById('apt-sessions-count')?.value;
-        if (sessionsCount && !this.editingId) {
-            data.sessions_count = parseInt(sessionsCount, 10);
-        }
 
         if (!data.client_name || !data.date || !data.time_start || !data.time_end) {
             showToast('Заполните обязательные поля');
@@ -133,9 +147,8 @@ const Appointments = {
             this.closeModal();
             Calendar.render();
         } catch (err) {
-            // Если ошибка пришла от сервера, она может быть объектом
-            if (err.detail) {
-                alert('Ошибка: ' + err.detail);
+            if (err.message && err.message.includes('находится в корзине')) {
+                alert(err.message);
             } else {
                 showToast('❌ ' + err.message);
             }
@@ -153,6 +166,21 @@ const Appointments = {
         try {
             await API.deleteAppointment(this.editingId);
             showToast('🗑️ Запись удалена');
+            this.closeModal();
+            Calendar.render();
+        } catch (err) {
+            showToast('❌ ' + err.message);
+        }
+    },
+
+    /**
+     * Обновить статус посещаемости
+     */
+    async setAttendance(status) {
+        if (!this.editingId) return;
+        try {
+            await API.updateAttendance(this.editingId, status);
+            showToast('✅ Статус обновлён');
             this.closeModal();
             Calendar.render();
         } catch (err) {
@@ -213,6 +241,11 @@ const Appointments = {
 
         // Удаление
         document.getElementById('btn-delete-apt').addEventListener('click', () => this.delete());
+        
+        // Посещаемость
+        document.getElementById('btn-apt-no-show').addEventListener('click', () => this.setAttendance('no_show'));
+        document.getElementById('btn-apt-attended').addEventListener('click', () => this.setAttendance('attended'));
+        document.getElementById('btn-apt-pending').addEventListener('click', () => this.setAttendance('pending'));
 
         // Автоподсказки
         document.getElementById('apt-client-name').addEventListener('input', (e) => {

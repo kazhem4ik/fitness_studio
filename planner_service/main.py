@@ -13,6 +13,7 @@ from planner_service.api.appointments import router as appointments_router
 from planner_service.api.clients import router as clients_router
 from planner_service.api.finances import router as finances_router
 from planner_service.api.public_booking import router as public_booking_router
+from planner_service.api.admin_panel import router as admin_panel_router
 
 # Абсолютный путь к директории static
 BASE_DIR = Path(__file__).resolve().parent
@@ -44,6 +45,7 @@ app.include_router(auth_router, prefix="/clients")
 app.include_router(appointments_router, prefix="/clients")
 app.include_router(clients_router, prefix="/clients")
 app.include_router(finances_router, prefix="/clients")
+app.include_router(admin_panel_router, prefix="/clients")
 app.include_router(public_booking_router, prefix="/api/public")
 
 # Статические файлы PWA — под /clients/static/

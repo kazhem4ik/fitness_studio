@@ -1,6 +1,6 @@
-﻿from datetime import datetime
+from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import Integer, String, Boolean, DateTime, Text
+from sqlalchemy import Integer, String, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from planner_service.core.database import Base
@@ -11,6 +11,11 @@ class Client(Base):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Тренер-владелец карточки
+    trainer_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("admin_users.id"), nullable=True, index=True
+    )
 
     # Основные данные
     full_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -26,6 +31,7 @@ class Client(Base):
     # Даты
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_visit_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Связи
     packages: Mapped[List["Package"]] = relationship(
@@ -34,3 +40,4 @@ class Client(Base):
     appointments: Mapped[List["Appointment"]] = relationship(
         "Appointment", back_populates="client", foreign_keys="Appointment.client_id"
     )
+

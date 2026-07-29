@@ -12,6 +12,11 @@ class Appointment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
+    # Тренер-владелец записи
+    trainer_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("admin_users.id"), nullable=True, index=True
+    )
+
     # Клиент (опциональная привязка к карточке Client)
     client_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("clients.id"), nullable=True, index=True

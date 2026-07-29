@@ -173,16 +173,6 @@ const Calendar = {
         if (apt.training_type) {
             badges += `<span class="apt-badge training-type" style="background:${color}20;color:${color}">${apt.training_type}</span>`;
         }
-        if (apt.price) {
-            const paidClass = apt.is_paid ? 'paid' : 'unpaid';
-            const paidLabel = apt.is_paid ? '✓ Оплачено' : 'Не оплачено';
-            badges += `<span class="apt-badge ${paidClass}">${paidLabel}</span>`;
-        }
-
-        let priceHtml = '';
-        if (apt.price) {
-            priceHtml = `<span class="apt-price">${apt.price.toLocaleString('ru-RU')} ₽</span>`;
-        }
 
         card.innerHTML = `
             <div class="apt-card-header">
@@ -191,7 +181,6 @@ const Calendar = {
             </div>
             <div class="apt-card-details">
                 ${badges}
-                ${priceHtml}
             </div>
         `;
 
