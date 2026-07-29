@@ -299,6 +299,32 @@ class ClientsManager {
                 });
             }
             
+            const btnRemove = document.getElementById('cd-btn-remove-session');
+            if (btnRemove) {
+                const newBtnRemove = btnRemove.cloneNode(true);
+                btnRemove.parentNode.replaceChild(newBtnRemove, btnRemove);
+                newBtnRemove.addEventListener('click', async () => {
+                    if (details.sessions_balance <= 0) {
+                        if (window.showToast) window.showToast("Баланс уже равен нулю", "error");
+                        else alert("Баланс уже равен нулю");
+                        return;
+                    }
+                    if (confirm(`Списать одно занятие вручную у ${details.full_name}?`)) {
+                        try {
+                            const newBalance = details.sessions_balance - 1;
+                            await API.updateClient(details.id, { sessions_balance: newBalance });
+                            document.getElementById('cd-balance').textContent = newBalance;
+                            details.sessions_balance = newBalance;
+                            this.render();
+                            if (window.showToast) window.showToast("Занятие успешно списано!");
+                        } catch (err) {
+                            console.error(err);
+                            if (window.showToast) window.showToast("Ошибка при списании", "error");
+                        }
+                    }
+                });
+            }
+
             const btnAdd = document.getElementById('cd-btn-add-package');
             const newBtnAdd = btnAdd.cloneNode(true);
             btnAdd.parentNode.replaceChild(newBtnAdd, btnAdd);

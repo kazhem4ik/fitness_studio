@@ -3,7 +3,7 @@
  */
 
 // --- Toast ---
-function showToast(message, duration = 2500) {
+function showToast(message, duration = 5000) {
     const toast = document.getElementById('toast');
     const msg = document.getElementById('toast-message');
     msg.textContent = message;
@@ -509,3 +509,85 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
 });
+
+// --- Pull to Refresh ---
+function initPullToRefresh() {
+    let touchstartY = 0;
+    let touchmoveY = 0;
+    let isPulling = false;
+    let ptrIndicator = null;
+    
+    if (!document.getElementById('ptr-indicator')) {
+        ptrIndicator = document.createElement('div');
+        ptrIndicator.id = 'ptr-indicator';
+        ptrIndicator.style = `
+            position: fixed;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: var(--surface);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: top 0.2s ease-out;
+            z-index: 10000;
+            color: var(--primary);
+            font-size: 18px;
+        `;
+        ptrIndicator.innerHTML = '<i class="fas fa-sync-alt" id="ptr-icon" style="transition: transform 0s;"></i>';
+        document.body.appendChild(ptrIndicator);
+    } else {
+        ptrIndicator = document.getElementById('ptr-indicator');
+    }
+
+    document.addEventListener('touchstart', e => {
+        if (window.scrollY === 0) {
+            touchstartY = e.touches[0].clientY;
+            isPulling = true;
+        } else {
+            isPulling = false;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+        if (!isPulling) return;
+        touchmoveY = e.touches[0].clientY;
+        const pullDistance = touchmoveY - touchstartY;
+        
+        if (pullDistance > 0 && window.scrollY === 0) {
+            let offset = pullDistance * 0.4 - 50; 
+            if (offset > 60) offset = 60 + (offset - 60) * 0.2; // resistance
+            ptrIndicator.style.top = `${offset}px`;
+            
+            const icon = document.getElementById('ptr-icon');
+            if (icon) icon.style.transform = `rotate(${pullDistance}deg)`;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', e => {
+        if (!isPulling) return;
+        const pullDistance = touchmoveY - touchstartY;
+        
+        if (pullDistance > 120 && window.scrollY === 0) {
+            ptrIndicator.style.top = '30px';
+            const icon = document.getElementById('ptr-icon');
+            if (icon) {
+                icon.className = 'fas fa-circle-notch fa-spin';
+                icon.style.transform = 'none';
+            }
+            setTimeout(() => {
+                location.reload();
+            }, 400);
+        } else {
+            ptrIndicator.style.top = '-50px';
+        }
+        isPulling = false;
+        touchstartY = 0;
+        touchmoveY = 0;
+    });
+}
+document.addEventListener('DOMContentLoaded', initPullToRefresh);

@@ -125,10 +125,16 @@ class FinancesManager {
                     }
 
                     el.style = `display: flex; justify-content: space-between; padding: 12px; background: var(--surface); border-radius: 12px; margin-bottom: 8px; ${cursorStyle}`;
+                    let commentHtml = '';
+                    if (tx.comment) {
+                        commentHtml = `<div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">${tx.comment}</div>`;
+                    }
+
                     el.innerHTML = `
                         <div>
                             <div style="font-weight: 500;">${tx.title}</div>
-                            <div style="font-size: 12px; color: var(--text-secondary);">${tx.date}</div>
+                            ${commentHtml}
+                            <div style="font-size: 12px; color: var(--text-secondary); opacity: 0.8; margin-top: 2px;">${tx.date}</div>
                         </div>
                         <div style="font-weight: 600; color: ${color};">${sign}${tx.amount} ₽</div>
                     `;

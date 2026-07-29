@@ -1099,7 +1099,10 @@ a { color: inherit; text-decoration: none; }
     z-index: 1000;
     box-shadow: var(--shadow-card);
     animation: toastIn 0.3s var(--ease-spring);
-    white-space: nowrap;
+    white-space: normal;
+    max-width: 90%;
+    text-align: center;
+    word-wrap: break-word;
 }
 
 @keyframes toastIn {

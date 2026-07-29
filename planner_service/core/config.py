@@ -31,8 +31,8 @@ class Settings(BaseSettings):
 
     # Настройки расписания
     SLOT_DURATION: int = 60      # Длительность слота в минутах
-    BUFFER_BEFORE: int = 10      # Окно до (не используется)
-    BUFFER_AFTER: int = 20       # Окно после
+    BUFFER_BEFORE: int = 0       # Окно до (перерыв убран)
+    BUFFER_AFTER: int = 0        # Окно после (перерыв убран)
     STUDIO_OPEN_TIME: str = "10:00"
     STUDIO_CLOSE_TIME: str = "20:00"
 

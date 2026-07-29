@@ -318,6 +318,7 @@ async def get_income(
             "is_auto": True
         }
         for p, c_name in packages
+        if (p.amount_paid or 0) > 0
     ]
     items += [
         {
@@ -326,7 +327,8 @@ async def get_income(
             "category": m.category,
             "amount": m.amount,
             "type": "income",
-            "is_auto": False
+            "is_auto": False,
+            "comment": m.comment
         }
         for m in manual_incomes
     ]

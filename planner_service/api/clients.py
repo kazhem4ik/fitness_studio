@@ -41,6 +41,7 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    sessions_balance: Optional[int] = None
 
 class PackageCreate(BaseModel):
     sessions_count: int
