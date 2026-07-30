@@ -31,6 +31,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     dateInput.min = localISOTime;
     dateInput.value = ''; // Изначально пусто
 
+    // Автозаполнение из localStorage
+    const savedName = localStorage.getItem('saved_client_name');
+    const savedPhone = localStorage.getItem('saved_client_phone');
+    const savedContact = localStorage.getItem('saved_contact_method');
+    
+    if (savedName) nameInput.value = savedName;
+    if (savedPhone) phoneInput.value = savedPhone;
+    if (savedContact) {
+        const contactSelect = document.getElementById('contact-method');
+        if (contactSelect) contactSelect.value = savedContact;
+    }
+
     // Загрузка тренеров
     try {
         const response = await fetch('/api/public/trainers');
@@ -243,6 +255,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await response.json();
 
             if (response.ok) {
+                // Сохраняем данные для автозаполнения в следующий раз
+                localStorage.setItem('saved_client_name', nameInput.value.trim());
+                localStorage.setItem('saved_client_phone', phoneInput.value);
+                localStorage.setItem('saved_contact_method', contactMethod);
+
                 // Форматируем дату
                 const [yyyy, mm, dd] = dateInput.value.split('-');
                 const formattedDate = `${dd}.${mm}.${yyyy}`;
