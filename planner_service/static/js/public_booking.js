@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tzOffset = today.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
     dateInput.min = localISOTime;
-    dateInput.value = localISOTime;
+    dateInput.value = ''; // Изначально пусто
 
     // Загрузка тренеров
     try {
@@ -42,16 +42,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (trainers.length === 1) {
             trainerSelect.value = trainers[0].id;
+            document.getElementById('date-group').style.display = 'block';
+            document.getElementById('time-group').style.display = 'block';
         }
     } catch (err) {
         trainerSelect.innerHTML = '<option value="" disabled>Ошибка загрузки</option>';
     }
 
     // Слушатели
-    trainerSelect.addEventListener('change', loadSlots);
+    trainerSelect.addEventListener('change', () => {
+        document.getElementById('date-group').style.display = 'block';
+        document.getElementById('time-group').style.display = 'block';
+        if (dateInput.value) {
+            loadSlots();
+        }
+    });
     dateInput.addEventListener('change', loadSlots);
 
-    if (trainerSelect.value) {
+    if (trainerSelect.value && dateInput.value) {
         loadSlots();
     }
 
