@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     STUDIO_OPEN_TIME: str = "10:00"
     STUDIO_CLOSE_TIME: str = "20:00"
 
+    # Защита от ботов и спама (публичная форма записи)
+    RATE_LIMIT_IP_LIMIT: int = 5              # макс. попыток с одного IP за окно
+    RATE_LIMIT_IP_WINDOW_SECONDS: int = 3600  # окно IP-лимита (1 час)
+    RATE_LIMIT_PHONE_LIMIT: int = 3           # макс. попыток с одного номера за окно
+    RATE_LIMIT_PHONE_WINDOW_SECONDS: int = 86400  # окно номера (24 часа)
+
+    # Временная резервация слота при выборе времени
+    SLOT_RESERVATION_MINUTES: int = 5         # минут удержания слота до подтверждения
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

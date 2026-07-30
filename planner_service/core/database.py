@@ -32,7 +32,10 @@ async def init_db():
     from planner_service.models.appointment import Appointment
     from planner_service.models.admin import AdminUser
     from planner_service.models.push_subscription import PushSubscription
-    
+    from planner_service.models.booking_attempt import BookingAttempt
+    from planner_service.models.slot_reservation import SlotReservation
+
     """Создание всех таблиц."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+

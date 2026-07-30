@@ -9,7 +9,8 @@ class ClientsManager {
         this.btnAddClient = document.getElementById('btn-add-client');
         this.clients = [];
         this.isTrashMode = false;
-        
+        this.isBlockedMode = false;
+
         this.initEventListeners();
     }
 
@@ -30,8 +31,11 @@ class ClientsManager {
         if (trashBtn) {
             trashBtn.addEventListener('click', () => {
                 this.isTrashMode = !this.isTrashMode;
+                if (this.isTrashMode) this.isBlockedMode = false; // сбрасываем другой режим
                 trashBtn.style.color = this.isTrashMode ? 'var(--primary)' : 'var(--text-secondary)';
-                
+                const blockedBtn = document.getElementById('btn-clients-blocked');
+                if (blockedBtn) blockedBtn.style.color = 'var(--text-secondary)';
+
                 const btnAdd = document.getElementById('btn-add-client');
                 const btnEmpty = document.getElementById('btn-empty-trash');
                 if (this.isTrashMode) {
@@ -40,6 +44,29 @@ class ClientsManager {
                 } else {
                     if (btnAdd) btnAdd.classList.remove('hidden');
                     if (btnEmpty) btnEmpty.classList.add('hidden');
+                }
+                this.loadClients();
+            });
+        }
+
+        // Кнопка режима заблокированных
+        const blockedBtn = document.getElementById('btn-clients-blocked');
+        if (blockedBtn) {
+            blockedBtn.addEventListener('click', () => {
+                this.isBlockedMode = !this.isBlockedMode;
+                if (this.isBlockedMode) {
+                    // Сбрасываем trash-режим
+                    this.isTrashMode = false;
+                    trashBtn && (trashBtn.style.color = 'var(--text-secondary)');
+                    const btnEmpty = document.getElementById('btn-empty-trash');
+                    if (btnEmpty) btnEmpty.classList.add('hidden');
+                    const btnAdd = document.getElementById('btn-add-client');
+                    if (btnAdd) btnAdd.classList.add('hidden');
+                }
+                blockedBtn.style.color = this.isBlockedMode ? 'var(--color-danger)' : 'var(--text-secondary)';
+                if (!this.isBlockedMode) {
+                    const btnAdd = document.getElementById('btn-add-client');
+                    if (btnAdd) btnAdd.classList.remove('hidden');
                 }
                 this.loadClients();
             });
@@ -118,7 +145,14 @@ class ClientsManager {
 
     async loadClients() {
         try {
-            const endpoint = this.isTrashMode ? '/clients?deleted=true' : '/clients';
+            let endpoint;
+            if (this.isBlockedMode) {
+                endpoint = '/clients?blocked=true';
+            } else if (this.isTrashMode) {
+                endpoint = '/clients?deleted=true';
+            } else {
+                endpoint = '/clients';
+            }
             const data = await API.request('GET', endpoint);
             this.clients = data;
             this.renderList();
@@ -146,30 +180,45 @@ class ClientsManager {
         filtered.forEach(client => {
             const card = document.createElement('div');
             card.className = 'client-card';
-            
-            // Красный/зеленый индикатор баланса
-            const balanceClass = client.sessions_balance > 0 ? 'balance-positive' : 'balance-empty';
-            
-            card.innerHTML = `
-                <div class="client-info">
-                    <h3 class="client-name">${client.full_name}</h3>
-                    <p class="client-phone">${client.phone || 'Нет номера'}</p>
-                </div>
-                <div class="client-balance">
-                    <span class="balance-badge ${balanceClass}">
-                        ${client.sessions_balance} занятий
-                    </span>
-                </div>
-            `;
-            
-            if (this.isTrashMode) {
-                card.style.opacity = '0.7';
-                card.innerHTML += `<div style="margin-top: 8px; text-align: center;"><button class="btn-outline btn-small" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="event.stopPropagation(); window.clientsManager.restoreClient(${client.id})">Восстановить</button></div>`;
+
+            if (this.isBlockedMode) {
+                // Режим заблокированных: показываем с кнопкой разблокировки
+                card.innerHTML = `
+                    <div class="client-info">
+                        <h3 class="client-name" style="color: var(--color-danger);">${client.full_name}</h3>
+                        <p class="client-phone">${client.phone || 'Нет номера'}</p>
+                    </div>
+                    <div class="client-balance">
+                        <span class="balance-badge balance-empty">Заблокирован</span>
+                    </div>
+                `;
+                card.style.opacity = '0.8';
+                card.innerHTML += `<div style="margin-top: 8px; text-align: center;"><button class="btn-outline btn-small" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="event.stopPropagation(); window.clientsManager.unblockClient(${client.id})">Разблокировать</button></div>`;
             } else {
-                card.addEventListener('click', () => this.showClientDetails(client.id));
+                // Обычный режим
+                const balanceClass = client.sessions_balance > 0 ? 'balance-positive' : 'balance-empty';
+                card.innerHTML = `
+                    <div class="client-info">
+                        <h3 class="client-name">${client.full_name}</h3>
+                        <p class="client-phone">${client.phone || 'Нет номера'}</p>
+                    </div>
+                    <div class="client-balance">
+                        <span class="balance-badge ${balanceClass}">
+                            ${client.sessions_balance} занятий
+                        </span>
+                    </div>
+                `;
+                if (this.isTrashMode) {
+                    card.style.opacity = '0.7';
+                    card.innerHTML += `<div style="margin-top: 8px; text-align: center;"><button class="btn-outline btn-small" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="event.stopPropagation(); window.clientsManager.restoreClient(${client.id})">Восстановить</button></div>`;
+                } else {
+                    card.addEventListener('click', () => this.showClientDetails(client.id));
+                }
             }
+
             this.listContainer.appendChild(card);
         });
+
     }
 
     showClientModal(client = null) {
@@ -373,7 +422,7 @@ class ClientsManager {
             if (btnDelete) {
                 const newBtnDelete = btnDelete.cloneNode(true);
                 btnDelete.parentNode.replaceChild(newBtnDelete, btnDelete);
-                
+
                 newBtnDelete.addEventListener('click', async () => {
                     if (confirm('Вы уверены? Клиент и все его данные отправятся в корзину.')) {
                         try {
@@ -387,9 +436,63 @@ class ClientsManager {
                     }
                 });
             }
-            
+
+            // Кнопка блокировки / разблокировки
+            const btnBlock = document.getElementById('cd-btn-block');
+            if (btnBlock) {
+                if (details.phone) {
+                    // Показываем кнопку только если есть номер (блокировка по номеру)
+                    btnBlock.classList.remove('hidden');
+
+                    if (details.is_blocked) {
+                        btnBlock.textContent = 'Разблокировать';
+                        btnBlock.style.borderColor = 'var(--primary)';
+                        btnBlock.style.color = 'var(--primary)';
+                    } else {
+                        btnBlock.textContent = 'Заблокировать';
+                        btnBlock.style.borderColor = 'var(--color-danger)';
+                        btnBlock.style.color = 'var(--color-danger)';
+                    }
+
+                    const newBtnBlock = btnBlock.cloneNode(true);
+                    btnBlock.parentNode.replaceChild(newBtnBlock, btnBlock);
+
+                    newBtnBlock.addEventListener('click', async () => {
+                        const newBlockedState = !details.is_blocked;
+                        const confirmMsg = newBlockedState
+                            ? `Заблокировать ${details.full_name}? Номер не сможет записаться на тренировку через форму записи.`
+                            : `Разблокировать ${details.full_name}?`;
+
+                        if (!confirm(confirmMsg)) return;
+
+                        try {
+                            await API.updateClient(clientId, { is_blocked: newBlockedState });
+                            document.getElementById('cd-btn-close').click();
+                            this.loadClients();
+                            const msg = newBlockedState ? 'Клиент заблокирован' : 'Клиент разблокирован';
+                            if (window.showToast) window.showToast(msg);
+                        } catch (e) {
+                            alert('Ошибка обновления статуса');
+                        }
+                    });
+                } else {
+                    btnBlock.classList.add('hidden');
+                }
+            }
+
         } catch (e) {
             alert("Ошибка загрузки деталей");
+        }
+    }
+
+    async unblockClient(clientId) {
+        if (!confirm('Разблокировать клиента? Он снова сможет записаться через форму.')) return;
+        try {
+            await API.updateClient(clientId, { is_blocked: false });
+            this.loadClients();
+            if (window.showToast) window.showToast('Клиент разблокирован');
+        } catch (e) {
+            alert('Ошибка разблокировки');
         }
     }
 }

@@ -4,10 +4,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const slotsContainer = document.getElementById('slots-container');
     const nameInput = document.getElementById('client-name');
     const phoneInput = document.getElementById('client-phone');
+    const websiteInput = document.getElementById('client-website'); // honeypot
     const submitBtn = document.getElementById('btn-submit');
     const statusMessage = document.getElementById('status-message');
-    
+
     let selectedTime = null;
+    // Момент когда пользователь кликнул на слот — для honeypot-таймера
+    let slotClickedAt = null;
+
+    // ----------------------------------------------------------------
+    // Session ID: уникальный идентификатор вкладки (хранится в sessionStorage)
+    // Один session_id = одна активная резервация слота
+    // ----------------------------------------------------------------
+    let sessionId = sessionStorage.getItem('booking_sid');
+    if (!sessionId) {
+        sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        sessionStorage.setItem('booking_sid', sessionId);
+    }
 
     // Инициализация даты
     const today = new Date();
@@ -21,10 +36,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await fetch('/api/public/trainers');
         if (!response.ok) throw new Error();
         const trainers = await response.json();
-        
-        trainerSelect.innerHTML = '<option value="" disabled selected>Выберите тренера</option>' + 
+
+        trainerSelect.innerHTML = '<option value="" disabled selected>Выберите тренера</option>' +
             trainers.map(t => `<option value="${t.id}">${t.display_name}</option>`).join('');
-            
+
         if (trainers.length === 1) {
             trainerSelect.value = trainers[0].id;
         }
@@ -35,36 +50,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Слушатели
     trainerSelect.addEventListener('change', loadSlots);
     dateInput.addEventListener('change', loadSlots);
-    
-    // Если тренер уже выбран (например, единственный), грузим слоты
+
     if (trainerSelect.value) {
         loadSlots();
     }
 
+    // ----------------------------------------------------------------
+    // Загрузка слотов (передаём session_id чтобы бэкенд не скрывал
+    // наш собственный зарезервированный слот)
+    // ----------------------------------------------------------------
     async function loadSlots() {
         const date = dateInput.value;
         const trainerId = trainerSelect.value;
-        
+
         if (!date || !trainerId) {
             slotsContainer.innerHTML = '<div class="loading">Выберите тренера и дату</div>';
             return;
         }
-        
+
         slotsContainer.innerHTML = '<div class="loading">Загрузка слотов...</div>';
         selectedTime = null;
         validateForm();
 
         try {
-            const response = await fetch(`/api/public/slots?d=${date}&trainer_id=${trainerId}`);
+            const url = `/api/public/slots?d=${date}&trainer_id=${trainerId}&session_id=${encodeURIComponent(sessionId)}`;
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Ошибка сервера');
             const slots = await response.json();
-            
             renderSlots(slots);
         } catch (err) {
             slotsContainer.innerHTML = '<div class="loading" style="color: var(--error);">Не удалось загрузить слоты</div>';
         }
     }
 
+    // ----------------------------------------------------------------
+    // Рендер кнопок слотов
+    // ----------------------------------------------------------------
     function renderSlots(slots) {
         if (slots.length === 0) {
             slotsContainer.innerHTML = '<div class="loading">На этот день нет свободных мест</div>';
@@ -79,26 +100,60 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!slot.available) {
                 btn.disabled = true;
             } else {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    selectedTime = slot.time;
-                    validateForm();
-                });
+                btn.addEventListener('click', () => selectSlot(btn, slot.time));
             }
             slotsContainer.appendChild(btn);
         });
     }
 
-    // Маска телефона
-    phoneInput.addEventListener('input', function(e) {
-        let val = this.value.replace(/\D/g, '');
-        if (val.length === 0) {
-            this.value = '';
-            validateForm();
-            return;
+    // ----------------------------------------------------------------
+    // Выбор слота: резервируем на бэкенде, запоминаем время клика
+    // ----------------------------------------------------------------
+    async function selectSlot(btn, time) {
+        const trainerId = trainerSelect.value;
+        const date = dateInput.value;
+
+        // Визуально активируем немедленно
+        document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedTime = time;
+        slotClickedAt = Date.now();
+        validateForm();
+
+        // Резервируем слот на бэкенде (fire-and-forget с обработкой конфликта)
+        try {
+            const res = await fetch('/api/public/slots/reserve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    trainer_id: parseInt(trainerId, 10),
+                    date: date,
+                    time: time,
+                    session_id: sessionId,
+                })
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                // Слот перехватили пока мы выбирали — показываем предупреждение
+                document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
+                selectedTime = null;
+                validateForm();
+                showStatus('error', data.reason || 'Этот слот только что заняли, выберите другое время');
+                // Перезагружаем актуальный список слотов
+                setTimeout(loadSlots, 1500);
+            }
+        } catch (e) {
+            // Резервация не критична: если недоступна сеть — продолжаем без неё
+            console.warn('Slot reservation failed (non-critical):', e);
         }
-        
+    }
+
+    // ----------------------------------------------------------------
+    // Маска телефона
+    // ----------------------------------------------------------------
+    phoneInput.addEventListener('input', function() {
+        let val = this.value.replace(/\D/g, '');
+        if (val.length === 0) { this.value = ''; validateForm(); return; }
         if (val[0] === '8') val = '7' + val.substring(1);
         if (val[0] !== '7') val = '7' + val;
 
@@ -107,7 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (val.length >= 5) formatted += ') ' + val.substring(4, 7);
         if (val.length >= 8) formatted += '-' + val.substring(7, 9);
         if (val.length >= 10) formatted += '-' + val.substring(9, 11);
-        
+
         this.value = formatted;
         validateForm();
     });
@@ -119,16 +174,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isPhoneValid = phoneRaw.length === 11;
         const isNameValid = nameInput.value.trim().length >= 2;
         const isTrainerSelected = !!trainerSelect.value;
-        
         submitBtn.disabled = !(selectedTime && isPhoneValid && isNameValid && isTrainerSelected);
     }
 
-    // Отправка
+    // ----------------------------------------------------------------
+    // Отправка формы
+    // ----------------------------------------------------------------
     submitBtn.addEventListener('click', async () => {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Отправка...';
-        statusMessage.className = 'message';
-        statusMessage.textContent = '';
+        clearStatus();
+
+        // Honeypot защита на фронте:
+        // Если поле заполнено, но прошло < 200мс с момента клика на слот
+        // (или вообще нет timestamp) — скорее всего автозаполнение браузера.
+        // Очищаем поле, чтобы не заблокировать реального пользователя.
+        let honeypotValue = websiteInput ? websiteInput.value : '';
+        if (honeypotValue && slotClickedAt) {
+            const elapsed = Date.now() - slotClickedAt;
+            if (elapsed < 200) {
+                // Автозаполнение — тихо очищаем
+                honeypotValue = '';
+            }
+        }
 
         try {
             const response = await fetch('/api/public/book', {
@@ -139,7 +207,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     time: selectedTime,
                     client_name: nameInput.value.trim(),
                     client_phone: '+' + phoneInput.value.replace(/\D/g, ''),
-                    trainer_id: parseInt(trainerSelect.value, 10)
+                    trainer_id: parseInt(trainerSelect.value, 10),
+                    website: honeypotValue,
+                    session_id: sessionId,
                 })
             });
 
@@ -149,14 +219,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error(data.detail || 'Ошибка при записи');
             }
 
+            // Успех (включая тихий honeypot-ответ с client_id: 0)
             document.getElementById('booking-form-container').style.display = 'none';
             document.getElementById('success-container').style.display = 'block';
 
+            // Очищаем session_id чтобы следующее открытие страницы начало новую сессию
+            sessionStorage.removeItem('booking_sid');
+
         } catch (err) {
-            statusMessage.className = 'message error';
-            statusMessage.textContent = err.message;
+            showStatus('error', err.message);
             submitBtn.disabled = false;
             submitBtn.textContent = 'Записаться';
         }
     });
+
+    // ----------------------------------------------------------------
+    // Утилиты
+    // ----------------------------------------------------------------
+    function showStatus(type, text) {
+        statusMessage.className = 'message ' + type;
+        statusMessage.textContent = text;
+    }
+
+    function clearStatus() {
+        statusMessage.className = 'message';
+        statusMessage.textContent = '';
+    }
 });

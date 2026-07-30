@@ -211,6 +211,13 @@
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <button id="btn-empty-trash" class="btn-outline btn-small hidden" style="border-color: var(--color-danger); color: var(--color-danger);">Очистить</button>
+                    <!-- Режим заблокированных клиентов -->
+                    <button id="btn-clients-blocked" class="btn-icon" title="Заблокированные" style="color: var(--text-secondary);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                        </svg>
+                    </button>
                     <button id="btn-clients-trash" class="btn-icon" title="Корзина" style="color: var(--text-secondary);">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 6h18"></path>
@@ -466,6 +473,7 @@
 
                 <div class="modal-actions" style="flex-wrap: wrap;">
                     <button type="button" class="btn btn-outline" id="cd-btn-close" style="flex: 1;">Закрыть</button>
+                    <button type="button" class="btn btn-outline hidden" id="cd-btn-block" style="flex: 1;">Заблокировать</button>
                     <button type="button" class="btn btn-outline" id="cd-btn-delete" style="flex: 1; border-color: var(--color-danger); color: var(--color-danger);">Удалить клиента</button>
                 </div>
             </div>

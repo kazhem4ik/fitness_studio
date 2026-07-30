@@ -42,6 +42,7 @@ class ClientUpdate(BaseModel):
     notes: Optional[str] = None
     is_active: Optional[bool] = None
     sessions_balance: Optional[int] = None
+    is_blocked: Optional[bool] = None
 
 class PackageCreate(BaseModel):
     sessions_count: int
@@ -68,6 +69,7 @@ class ClientResponse(BaseModel):
     notes: Optional[str]
     sessions_balance: int
     is_active: bool
+    is_blocked: bool = False
     created_at: datetime
     last_visit_at: Optional[datetime]
     model_config = {"from_attributes": True}
@@ -83,20 +85,29 @@ async def get_clients(
     q: str = "",
     active_only: bool = False,
     deleted: bool = False,
+    blocked: bool = False,
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_auth),
 ):
-    """Список клиентов текущего тренера (с поиском по имени/телефону)."""
+    """Список клиентов текущего тренера (с поиском по имени/телефону).
+
+    Параметр blocked=true возвращает только заблокированных клиентов.
+    В обычном режиме заблокированные скрыты из списка.
+    """
     trainer_id = int(auth["sub"])
     query = select(Client).where(Client.trainer_id == trainer_id)
-    
-    if deleted:
+
+    if blocked:
+        # Режим просмотра заблокированных
+        query = query.where(Client.is_blocked == True, Client.deleted_at.is_(None))
+    elif deleted:
         query = query.where(Client.deleted_at.is_not(None))
     else:
-        query = query.where(Client.deleted_at.is_(None))
+        # Обычный режим: скрываем заблокированных и удалённых
+        query = query.where(Client.deleted_at.is_(None), Client.is_blocked == False)
         if active_only:
             query = query.where(Client.is_active == True)
-            
+
     if q:
         query = query.where(
             Client.full_name.ilike(f"%{q}%") | Client.phone.ilike(f"%{q}%")
