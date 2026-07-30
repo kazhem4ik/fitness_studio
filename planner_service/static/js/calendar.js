@@ -158,6 +158,9 @@ const Calendar = {
     createAptCard(apt) {
         const card = document.createElement('div');
         card.className = 'apt-card';
+        if (!apt.is_confirmed) {
+            card.classList.add('pending-appointment');
+        }
         card.dataset.id = apt.id;
 
         // Цвет по типу тренировки

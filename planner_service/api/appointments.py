@@ -84,6 +84,7 @@ class AppointmentCreate(BaseModel):
     training_type: Optional[str] = None
     notes: Optional[str] = None
     is_confirmed: bool = True
+    contact_method: Optional[str] = None
 
 
 class AppointmentUpdate(BaseModel):
@@ -96,10 +97,12 @@ class AppointmentUpdate(BaseModel):
     notes: Optional[str] = None
     is_confirmed: Optional[bool] = None
     is_cancelled: Optional[bool] = None
+    contact_method: Optional[str] = None
 
 
 class AppointmentResponse(BaseModel):
     id: int
+    trainer_id: int
     client_id: Optional[int]
     client_name: str
     client_phone: Optional[str]
@@ -115,6 +118,7 @@ class AppointmentResponse(BaseModel):
     is_cancelled: bool
     is_attended: bool
     is_no_show: bool
+    contact_method: Optional[str]
     created_at: datetime
     updated_at: datetime
 

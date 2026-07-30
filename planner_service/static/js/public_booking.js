@@ -199,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
+            const contactMethod = document.getElementById('contact-method').value;
             const response = await fetch('/api/public/book', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -210,6 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     trainer_id: parseInt(trainerSelect.value, 10),
                     website: honeypotValue,
                     session_id: sessionId,
+                    contact_method: contactMethod
                 })
             });
 

@@ -364,6 +364,11 @@
                 </div>
 
 
+                <div class="form-group" id="apt-contact-method-group" style="display: none;">
+                    <label>Выбранный клиентом способ связи</label>
+                    <input type="text" id="apt-contact-method" readonly style="background-color: var(--background); border-style: dashed; color: var(--primary);">
+                </div>
+
                 <div class="form-group">
                     <label for="apt-training-type">Вид тренировки</label>
                     <select id="apt-training-type">
@@ -386,9 +391,13 @@
                     <button type="button" id="btn-apt-pending" class="btn btn-outline hidden" style="flex: 1;">Сбросить статус</button>
                 </div>
 
+                <div id="apt-confirm-actions" class="modal-actions hidden" style="margin-bottom: 12px;">
+                    <button type="button" id="btn-confirm-apt" class="btn-primary" style="width: 100%; background-color: var(--color-warning, #f59e0b);">Подтвердить заявку</button>
+                </div>
+
                 <div class="modal-actions">
                     <button type="button" id="btn-delete-apt" class="btn-danger hidden">Удалить</button>
-                    <button type="submit" id="btn-save-apt" class="btn-primary">Сохранить</button>
+                    <button type="submit" id="btn-save-apt" class="btn-primary" style="flex: 1;">Сохранить</button>
                 </div>
             </form>
         </div>

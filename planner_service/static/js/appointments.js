@@ -13,6 +13,8 @@ const Appointments = {
         document.getElementById('modal-title').textContent = 'Новая запись';
         document.getElementById('btn-delete-apt').classList.add('hidden');
         document.getElementById('apt-attendance-actions').classList.add('hidden');
+        document.getElementById('apt-contact-method-group').style.display = 'none';
+        document.getElementById('apt-confirm-actions').classList.add('hidden');
         document.getElementById('btn-save-apt').textContent = 'Сохранить';
 
         // Очистка формы
@@ -56,6 +58,17 @@ const Appointments = {
         document.getElementById('apt-time-end').value = apt.time_end.substring(0, 5);
         document.getElementById('apt-training-type').value = apt.training_type || '';
         document.getElementById('apt-notes').value = apt.notes || '';
+
+        const contactGroup = document.getElementById('apt-contact-method-group');
+        const confirmActions = document.getElementById('apt-confirm-actions');
+        if (!apt.is_confirmed) {
+            contactGroup.style.display = 'block';
+            document.getElementById('apt-contact-method').value = apt.contact_method || 'Не указан';
+            confirmActions.classList.remove('hidden');
+        } else {
+            contactGroup.style.display = 'none';
+            confirmActions.classList.add('hidden');
+        }
 
         const actionsDiv = document.getElementById('apt-attendance-actions');
         
@@ -189,6 +202,21 @@ const Appointments = {
     },
 
     /**
+     * Подтверждение заявки.
+     */
+    async confirm() {
+        if (!this.editingId) return;
+        try {
+            await API.updateAppointment(this.editingId, { is_confirmed: true });
+            showToast('✅ Заявка подтверждена');
+            this.closeModal();
+            Calendar.render();
+        } catch (err) {
+            showToast('❌ ' + err.message);
+        }
+    },
+
+    /**
      * Автоподсказки имён клиентов.
      */
     async loadSuggestions(query) {
@@ -241,6 +269,9 @@ const Appointments = {
 
         // Удаление
         document.getElementById('btn-delete-apt').addEventListener('click', () => this.delete());
+        
+        // Подтверждение заявки
+        document.getElementById('btn-confirm-apt').addEventListener('click', () => this.confirm());
         
         // Посещаемость
         document.getElementById('btn-apt-no-show').addEventListener('click', () => this.setAttendance('no_show'));

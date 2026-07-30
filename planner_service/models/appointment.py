@@ -40,6 +40,7 @@ class Appointment(Base):
 
     # Статус
     is_confirmed: Mapped[bool] = mapped_column(Boolean, default=True)
+    contact_method: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_cancelled: Mapped[bool] = mapped_column(Boolean, default=False)
     is_attended: Mapped[bool] = mapped_column(Boolean, default=False)   # Тренировка проведена (списывает занятие)
     is_no_show: Mapped[bool] = mapped_column(Boolean, default=False)    # Клиент не пришёл

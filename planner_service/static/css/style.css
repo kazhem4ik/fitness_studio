@@ -1053,6 +1053,15 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============================================================
+   PENDING APPOINTMENTS
+   ============================================================ */
+.pending-appointment {
+    border: 2px dashed var(--color-warning, #f59e0b) !important;
+    background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(245, 158, 11, 0.05) 10px, rgba(245, 158, 11, 0.05) 20px) !important;
+    opacity: 0.9;
+}
+
+/* ============================================================
    EMPTY STATE
    ============================================================ */
 .empty-state {

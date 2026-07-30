@@ -37,6 +37,7 @@ class BookingRequest(BaseModel):
     website: Optional[str] = None
     # Идентификатор вкладки для привязки резервации
     session_id: Optional[str] = None
+    contact_method: str
 
 
 class ReserveRequest(BaseModel):
@@ -438,15 +439,17 @@ async def create_booking(
         time_start=start_time,
         time_end=end_time,
         training_type="Персональная",
-        price=0.0
+        price=0.0,
+        is_confirmed=False,
+        contact_method=req.contact_method
     )
     db.add(appointment)
     await db.commit()
 
-    msg_title = "Новая запись!"
-    msg_body = f"{req.client_name} ({formatted_phone}) записался на {req.date} в {req.time}"
+    msg_title = "Новая заявка!"
+    msg_body = f"{req.client_name} ({formatted_phone}) хочет записаться на {req.date} в {req.time}. Способ связи: {req.contact_method}."
     if is_new:
         msg_body += " (Новый клиент)"
 
     await send_push_notification(db, msg_title, msg_body, trainer_id=req.trainer_id)
-    return {"status": "ok", "message": "Вы успешно записаны!", "client_id": client.id}
+    return {"status": "ok", "message": "Ожидайте подтверждения записи тренером", "client_id": client.id}

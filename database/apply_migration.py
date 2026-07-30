@@ -27,4 +27,16 @@ else:
     conn.commit()
     print("[OK] Column is_blocked added to clients table.")
 
+cursor.execute("PRAGMA table_info(appointments)")
+app_columns = [row[1] for row in cursor.fetchall()]
+
+if "contact_method" in app_columns:
+    print("[OK] Column contact_method already exists - no migration needed.")
+else:
+    cursor.execute(
+        "ALTER TABLE appointments ADD COLUMN contact_method VARCHAR DEFAULT NULL"
+    )
+    conn.commit()
+    print("[OK] Column contact_method added to appointments table.")
+
 conn.close()
