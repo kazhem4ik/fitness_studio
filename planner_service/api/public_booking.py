@@ -447,5 +447,5 @@ async def create_booking(
     if is_new:
         msg_body += " (Новый клиент)"
 
-    await send_push_notification(db, msg_title, msg_body, trainer_id=req.trainer_id)
+    await send_push_notification(db, msg_title, msg_body, url=f"/clients/?date={req.date}", trainer_id=req.trainer_id)
     return {"status": "ok", "message": "Ожидайте подтверждения записи тренером", "client_id": client.id}

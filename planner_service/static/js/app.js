@@ -164,7 +164,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // При успешном логине
     window.addEventListener('app:ready', () => {
-        Calendar.switchView('month');
+        const params = new URLSearchParams(window.location.search);
+        let initialView = 'month';
+        
+        if (params.has('date')) {
+            const d = new Date(params.get('date'));
+            if (!isNaN(d.getTime())) {
+                Calendar.currentDate = d;
+                initialView = 'day';
+            }
+        }
+        
+        Calendar.switchView(initialView);
         showPushModalIfNeeded();
         
         const tabAdmin = document.getElementById('tab-admin');

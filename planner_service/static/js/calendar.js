@@ -262,14 +262,23 @@ const Calendar = {
             if (dayApts.length > 0) {
                 const dots = document.createElement('div');
                 dots.className = 'month-cell-dots';
-                const maxDots = Math.min(dayApts.length, 3);
-                for (let j = 0; j < maxDots; j++) {
+                
+                const hasConfirmed = dayApts.some(a => a.is_confirmed);
+                const hasPending = dayApts.some(a => !a.is_confirmed);
+                
+                if (hasConfirmed) {
                     const dot = document.createElement('div');
-                    dot.className = 'month-dot';
-                    const color = this.TRAINING_COLORS[dayApts[j].training_type] || '#7c3aed';
-                    dot.style.background = color;
+                    dot.className = 'month-dot confirmed';
+                    dot.style.background = 'var(--primary)';
                     dots.appendChild(dot);
                 }
+                if (hasPending) {
+                    const dot = document.createElement('div');
+                    dot.className = 'month-dot pending';
+                    dot.style.background = '#eab308'; // Приятный желтый (amber-500)
+                    dots.appendChild(dot);
+                }
+                
                 cell.appendChild(dots);
             }
 
