@@ -1,15 +1,164 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Фитнес-студия | Набережные Челны</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Персональные тренировки для девушек | ЖК Притяжение, Набережные Челны</title>
+    <meta name="description"
+        content="Приватная фитнес-студия только для девушек в ЖК «Притяжение», Набережные Челны. Персональные тренировки один на один, без спешки и лишних взглядов.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500;1,6..72,600&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="assets/css/styles.css">
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="text-center p-8 bg-white rounded-lg shadow-lg">
-        <h1 class="text-4xl font-bold text-blue-600 mb-4">Фитнес-студия</h1>
-        <p class="text-xl text-gray-700">Набережные Челны</p>
+
+<body>
+
+    <header class="topbar" id="topbar">
+        <div class="container topbar-inner">
+            <a href="#top" class="wordmark">Притяжение<span>.студия</span></a>
+            <a href="/book" class="btn btn-ghost">Записаться</a>
+        </div>
+    </header>
+
+    <div class="container" id="top">
+
+        <!-- Главный экран -->
+        <section class="hero">
+            <div class="hero-content">
+                <p class="eyebrow">Студия персональных тренировок для девушек</p>
+                <h1 class="hero-title">Час в неделю, который принадлежит только <em>тебе</em></h1>
+                <p class="hero-subtitle">
+                    Приватная студия в ЖК «Притяжение», Набережные Челны. Один тренер, один зал, никаких посторонних
+                    глаз — только вы и та форма, к которой вы идёте.
+                </p>
+                <div class="hero-actions">
+                    <a href="/book" class="btn btn-primary">Записаться на тренировку</a>
+                    <span class="hero-note">Первое занятие — 500 ₽</span>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <figure class="photo-frame">
+                    <img src="assets/img/studio.jpg" alt="Интерьер фитнес-студии в ЖК Притяжение"
+                        onerror="this.src='https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=800&auto=format&fit=crop';">
+                    <figcaption><i data-icon="pin"></i> ЖК Притяжение</figcaption>
+                </figure>
+                <div class="ticket-stub">
+                    <span class="ticket-label">Пробное занятие</span>
+                    <span class="ticket-price">500 ₽</span>
+                    <span class="ticket-sub">вместо 1 500 ₽</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Преимущества -->
+        <section class="features">
+            <p class="eyebrow eyebrow-center">Почему сюда, а не в обычный зал</p>
+            <h2 class="section-title">Три вещи, которые мы сделали иначе</h2>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 6c3-2 6-2 9 0s6 2 9 0" />
+                            <path d="M3 12c3-2 6-2 9 0s6 2 9 0" />
+                            <path d="M3 18c3-2 6-2 9 0s6 2 9 0" />
+                        </svg>
+                    </div>
+                    <h3>Только для девушек</h3>
+                    <p>Можно приходить без макияжа, в старой футболке и без стеснения повторять движение в третий раз.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3v4M12 3c-2 0-3 1.5-3 3s1 3 3 3 3 1.5 3 3-1 3-3 3M12 17v4" />
+                            <rect x="3" y="7" width="18" height="10" rx="2" />
+                        </svg>
+                    </div>
+                    <h3>Пробная тренировка по цене чашки кофе</h3>
+                    <p>Прежде чем покупать абонемент, приходите на одно занятие — познакомимся, обсудим цель и
+                        посмотрим, подходим ли мы друг другу.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="5" width="16" height="16" rx="2" />
+                            <path d="M4 10h16M9 3v4M15 3v4" />
+                            <path d="M9 15l2 2 4-4" />
+                        </svg>
+                    </div>
+                    <h3>Запись за 30 секунд</h3>
+                    <p>Без звонков и переписок — выбираете удобный день и час в календаре, и место закреплено за вами.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Как проходит -->
+        <section class="process">
+            <p class="eyebrow eyebrow-center">Первый визит</p>
+            <h2 class="section-title">Как проходит пробное занятие</h2>
+
+            <div class="process-grid">
+                <div class="process-step">
+                    <span class="process-num">01</span>
+                    <h3>Записываетесь онлайн</h3>
+                    <p>Выбираете удобный день и час — свободные слоты видно сразу, без ожидания ответа.</p>
+                </div>
+                <div class="process-step">
+                    <span class="process-num">02</span>
+                    <h3>Приходите</h3>
+                    <p>Переодеваетесь, коротко обсуждаем цель и самочувствие.</p>
+                </div>
+                <div class="process-step">
+                    <span class="process-num">03</span>
+                    <h3>Тренируетесь один на один</h3>
+                    <p>60 минут, где всё внимание тренера — только на вас и вашей технике.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Контакты / доверие -->
+        <section class="trust">
+            <div class="trust-card">
+                <h2 class="section-title">Студия рядом с домом</h2>
+                <ul class="trust-list">
+                    <li><strong>Адрес:</strong> г. Набережные Челны, ЖК «Притяжение»</li>
+                    <li><strong>Связь:</strong> <a href="https://t.me/Renata_pitanie" target="_blank"
+                            style="color: var(--color-primary); text-decoration: none; font-weight: 500;">Telegram</a>
+                    </li>
+                    <li><strong>Удобства:</strong> В студии предусмотрен душ и всё необходимое для вашего комфорта</li>
+                </ul>
+                <a href="/book" class="btn btn-primary">Выбрать время</a>
+            </div>
+        </section>
+
+        <!-- Футер -->
+        <footer>
+            <p>&copy; 2026 Студия персональных тренировок в ЖК «Притяжение». Набережные Челны.</p>
+        </footer>
     </div>
+
+    <script>
+        // Тень у верхней панели при прокрутке (не трогает ваш существующий main.js)
+        const topbar = document.getElementById('topbar');
+        window.addEventListener('scroll', () => {
+            topbar.classList.toggle('is-scrolled', window.scrollY > 12);
+        }, { passive: true });
+    </script>
+    <script src="assets/js/main.js"></script>
 </body>
+
 </html>
