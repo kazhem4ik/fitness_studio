@@ -161,11 +161,11 @@ async def get_slots(
     )
     reservations = res_result.scalars().all()
 
-    # Множество зарезервированных времён другими сессиями
-    reserved_by_others = set()
     for rsv in reservations:
         if rsv.session_id != session_id:
-            reserved_by_others.add((rsv.time_start.hour, rsv.time_start.minute))
+            rsv_start = datetime(d.year, d.month, d.day, rsv.time_start.hour, rsv.time_start.minute)
+            rsv_end = rsv_start + timedelta(minutes=settings.SLOT_DURATION)
+            occupied_times.append((rsv_start, rsv_end))
 
     slots = []
     current_time = start_time
@@ -173,7 +173,7 @@ async def get_slots(
         slot_end = current_time + timedelta(minutes=settings.SLOT_DURATION)
         available = True
 
-        # Проверка подтверждённых записей
+        # Проверка подтверждённых записей и чужих резерваций
         for (occ_start, occ_end) in occupied_times:
             if current_time < occ_end and slot_end > occ_start:
                 available = False
@@ -183,14 +183,10 @@ async def get_slots(
         if current_time < datetime.now() + timedelta(hours=1):
             available = False
 
-        # Чужая резервация
-        if available and (current_time.hour, current_time.minute) in reserved_by_others:
-            available = False
-
         if available:
             slots.append(SlotResponse(time=current_time.strftime("%H:%M"), available=True))
 
-        current_time += timedelta(minutes=settings.SLOT_DURATION)
+        current_time += timedelta(minutes=15)
 
     return slots
 

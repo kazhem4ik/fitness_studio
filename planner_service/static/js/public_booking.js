@@ -182,8 +182,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isPhoneValid = phoneRaw.length === 11;
         const isNameValid = nameInput.value.trim().length >= 2;
         const isTrainerSelected = !!trainerSelect.value;
-        submitBtn.disabled = !(selectedTime && isPhoneValid && isNameValid && isTrainerSelected);
+        const contactMethod = document.getElementById('contact-method').value;
+        const isContactMethodValid = contactMethod !== '';
+        submitBtn.disabled = !(selectedTime && isPhoneValid && isNameValid && isTrainerSelected && isContactMethodValid);
     }
+    
+    document.getElementById('contact-method').addEventListener('change', validateForm);
 
     // ----------------------------------------------------------------
     // Отправка формы
