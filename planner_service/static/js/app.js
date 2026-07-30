@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let swRegistration = null;
     if ('serviceWorker' in navigator) {
         try {
-            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=8', {
+            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=9', {
                 scope: '/clients/'
             });
             console.log('SW registered:', swRegistration.scope);
