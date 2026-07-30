@@ -14,7 +14,7 @@
             --primary-hover: #4f46e5;
             --text: #ffffff;
             --text-secondary: #a1a1aa;
-            --border: #333333;
+            --border: rgba(99, 102, 241, 0.35); /* Нетоксичный фиолетовый оттенок для границ */
             --radius: 12px;
             --error: #ef4444;
             --success: #22c55e;
@@ -58,6 +58,7 @@
 
         .card {
             background-color: var(--bg-card);
+            border: 1px solid var(--border); /* Обводка карточки */
             border-radius: var(--radius);
             padding: 24px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
