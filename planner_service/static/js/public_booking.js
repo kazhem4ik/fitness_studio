@@ -57,7 +57,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadSlots();
         }
     });
-    dateInput.addEventListener('change', loadSlots);
+    
+    // Используем blur вместо change, чтобы на мобильных устройствах 
+    // интерфейс не прыгал при прокрутке барабана с датами
+    dateInput.addEventListener('blur', loadSlots);
+    // Для десктопа добавляем change с debounce, чтобы срабатывало при выборе, но не спамило
+    let dateChangeTimeout;
+    dateInput.addEventListener('change', () => {
+        clearTimeout(dateChangeTimeout);
+        dateChangeTimeout = setTimeout(() => {
+            if (document.activeElement !== dateInput) {
+                loadSlots();
+            }
+        }, 500);
+    });
 
     if (trainerSelect.value && dateInput.value) {
         loadSlots();
@@ -229,16 +242,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const data = await response.json();
 
-            if (!response.ok) {
+            if (response.ok) {
+                // Форматируем дату
+                const [yyyy, mm, dd] = dateInput.value.split('-');
+                const formattedDate = `${dd}.${mm}.${yyyy}`;
+                
+                document.getElementById('success-details').innerHTML = 
+                    `Вы записаны на <strong style="color: var(--primary);">${formattedDate}</strong> в <strong style="color: var(--primary);">${selectedTime}</strong>`;
+                
+                document.getElementById('booking-form-container').style.display = 'none';
+                document.getElementById('success-container').style.display = 'block';
+                window.scrollTo(0, 0);
+
+                // Очищаем session_id чтобы следующее открытие страницы начало новую сессию
+                sessionStorage.removeItem('booking_sid');
+            } else {
                 throw new Error(data.detail || 'Ошибка при записи');
             }
-
-            // Успех (включая тихий honeypot-ответ с client_id: 0)
-            document.getElementById('booking-form-container').style.display = 'none';
-            document.getElementById('success-container').style.display = 'block';
-
-            // Очищаем session_id чтобы следующее открытие страницы начало новую сессию
-            sessionStorage.removeItem('booking_sid');
 
         } catch (err) {
             showStatus('error', err.message);
