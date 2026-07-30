@@ -269,7 +269,6 @@ const Calendar = {
                 if (hasConfirmed) {
                     const dot = document.createElement('div');
                     dot.className = 'month-dot confirmed';
-                    dot.style.background = 'var(--primary)';
                     dots.appendChild(dot);
                 }
                 if (hasPending) {
