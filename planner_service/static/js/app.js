@@ -153,15 +153,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Проверяем авторизацию
-    const isAuth = await Auth.checkAuth();
-    if (isAuth) {
-        Auth.showApp();
-        window.dispatchEvent(new CustomEvent('app:ready'));
-    } else {
-        Auth.showLogin();
-    }
-
     // При успешном логине
     window.addEventListener('app:ready', () => {
         const params = new URLSearchParams(window.location.search);
@@ -189,6 +180,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
+
+    // Проверяем авторизацию
+    const isAuth = await Auth.checkAuth();
+    if (isAuth) {
+        Auth.showApp();
+        window.dispatchEvent(new CustomEvent('app:ready'));
+    } else {
+        Auth.showLogin();
+    }
 
     // Service Worker registration — делаем сразу, не дожидаясь логина
     let swRegistration = null;
