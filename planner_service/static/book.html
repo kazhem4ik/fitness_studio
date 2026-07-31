@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Запись на тренировку</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #121212;
-            --bg-card: #1e1e1e;
-            --primary: #6366f1;
-            --primary-hover: #4f46e5;
-            --text: #ffffff;
-            --text-secondary: #a1a1aa;
-            --border: rgba(99, 102, 241, 0.35); /* Нетоксичный фиолетовый оттенок для границ */
+            /* Новая светлая палитра (как на лендинге) */
+            --color-bg: #FDF9F5;
+            --color-text: #3E2F29;
+            --color-text-secondary: #8B7369;
+            --color-primary: #9C6C57;
+            --color-primary-hover: #7D5442; 
+            --color-surface: #ffffff;
+            --color-border: #E8D3C7;
             --radius: 12px;
             --error: #ef4444;
             --success: #22c55e;
@@ -24,12 +25,12 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Golos Text', sans-serif;
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: var(--text);
+            background-color: var(--color-bg);
+            color: var(--color-text);
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
@@ -37,7 +38,7 @@
         .container {
             max-width: 480px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 32px 24px;
         }
 
         header {
@@ -46,22 +47,23 @@
         }
 
         header h1 {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 700;
             margin-bottom: 8px;
+            color: var(--color-text);
         }
 
         header p {
-            color: var(--text-secondary);
-            font-size: 15px;
+            color: var(--color-text-secondary);
+            font-size: 16px;
         }
 
         .card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border); /* Обводка карточки */
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border); 
             border-radius: var(--radius);
             padding: 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 20px rgba(45, 39, 39, 0.05);
             margin-bottom: 24px;
         }
 
@@ -74,33 +76,28 @@
             margin-bottom: 8px;
             font-size: 14px;
             font-weight: 500;
-            color: var(--text-secondary);
+            color: var(--color-text-secondary);
         }
 
         input[type="text"], input[type="tel"], input[type="date"], select {
             width: 100%;
             min-height: 48px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
+            background: #FAFAFA;
+            border: 1px solid var(--color-border);
             border-radius: 8px;
             padding: 12px 16px;
-            color: var(--text);
+            color: var(--color-text);
             font-size: 16px;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
             outline: none;
             box-sizing: border-box;
             -webkit-appearance: none;
             appearance: none;
         }
 
-        input:focus {
-            border-color: var(--primary);
-        }
-        
-        /* Изменение цвета иконки календаря для input[type="date"] в темной теме */
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
+        input:focus, select:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(156, 108, 87, 0.1);
         }
 
         .slots-grid {
@@ -112,11 +109,11 @@
         }
 
         .slot-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
+            background: #FDF9F5;
+            border: 1px solid var(--color-border);
             border-radius: 8px;
             padding: 10px;
-            color: var(--text);
+            color: var(--color-text);
             font-size: 15px;
             font-weight: 500;
             cursor: pointer;
@@ -124,23 +121,26 @@
         }
 
         .slot-btn:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.1);
+            background: #F5EAE1;
+            border-color: var(--color-primary);
         }
 
         .slot-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
+            background: var(--color-primary);
+            border-color: var(--color-primary);
             color: white;
+            box-shadow: 0 4px 10px rgba(156, 108, 87, 0.2);
         }
 
         .slot-btn:disabled {
-            opacity: 0.3;
+            opacity: 0.4;
             cursor: not-allowed;
+            background: #F5F5F5;
         }
 
         .btn-submit {
             width: 100%;
-            background: var(--primary);
+            background: var(--color-primary);
             color: white;
             border: none;
             border-radius: 8px;
@@ -148,22 +148,26 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
         }
 
         .btn-submit:hover:not(:disabled) {
-            background: var(--primary-hover);
+            background: var(--color-primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(139, 101, 98, 0.2);
         }
 
         .btn-submit:disabled {
             opacity: 0.7;
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
         .loading {
             text-align: center;
             padding: 20px;
-            color: var(--text-secondary);
+            color: var(--color-text-secondary);
         }
 
         .message {
@@ -241,7 +245,6 @@
                     </select>
                 </div>
 
-
                 <button class="btn-submit" id="btn-submit" disabled>Записаться</button>
                 <div id="status-message" class="message"></div>
             </div>
@@ -249,9 +252,9 @@
 
         <div id="success-container" style="display: none; text-align: center; margin-top: 40px;">
             <div style="font-size: 64px; color: var(--success); margin-bottom: 16px;">✓</div>
-            <h2>Заявка отправлена!</h2>
-            <p style="color: var(--text-secondary); margin-top: 8px;">Ожидайте подтверждения записи тренером. Мы свяжемся с вами выбранным способом.</p>
-            <div id="success-details" style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--border); color: var(--text);"></div>
+            <h2 style="color: var(--color-text);">Заявка отправлена!</h2>
+            <p style="color: var(--color-text-secondary); margin-top: 8px;">Ожидайте подтверждения записи тренером. Мы свяжемся с вами выбранным способом.</p>
+            <div id="success-details" style="margin-top: 24px; padding: 16px; background: var(--color-surface); border-radius: 8px; border: 1px solid var(--color-border); color: var(--color-text);"></div>
             <button class="btn-submit" style="margin-top: 24px;" onclick="window.location.reload()">Хорошо</button>
         </div>
     </div>
