@@ -5,6 +5,7 @@ services:
     build:
       context: ./bot_service
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
@@ -20,6 +21,7 @@ services:
     build:
       context: ./planner_service
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8001:8001"
     volumes:
@@ -33,6 +35,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    restart: unless-stopped
     ports:
       - "80:80"
     volumes:
