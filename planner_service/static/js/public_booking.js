@@ -13,15 +13,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     let slotClickedAt = null;
 
     // ----------------------------------------------------------------
-    // Session ID: уникальный идентификатор вкладки (хранится в sessionStorage)
+    // Session ID: уникальный идентификатор вкладки
     // Один session_id = одна активная резервация слота
     // ----------------------------------------------------------------
-    let sessionId = sessionStorage.getItem('booking_sid');
-    if (!sessionId) {
-        sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : Math.random().toString(36).slice(2) + Date.now().toString(36);
-        sessionStorage.setItem('booking_sid', sessionId);
+    let sessionId = null;
+    try {
+        sessionId = sessionStorage.getItem('booking_sid');
+        if (!sessionId) {
+            sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : Math.random().toString(36).slice(2) + Date.now().toString(36);
+            sessionStorage.setItem('booking_sid', sessionId);
+        }
+    } catch (e) {
+        // Fallback for Telegram Webview / Incognito mode where sessionStorage is blocked
+        sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     }
 
     // Инициализация даты
@@ -32,15 +38,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     dateInput.value = ''; // Изначально пусто
 
     // Автозаполнение из localStorage
-    const savedName = localStorage.getItem('saved_client_name');
-    const savedPhone = localStorage.getItem('saved_client_phone');
-    const savedContact = localStorage.getItem('saved_contact_method');
-    
-    if (savedName) nameInput.value = savedName;
-    if (savedPhone) phoneInput.value = savedPhone;
-    if (savedContact) {
-        const contactSelect = document.getElementById('contact-method');
-        if (contactSelect) contactSelect.value = savedContact;
+    try {
+        const savedName = localStorage.getItem('saved_client_name');
+        const savedPhone = localStorage.getItem('saved_client_phone');
+        const savedContact = localStorage.getItem('saved_contact_method');
+        
+        if (savedName) nameInput.value = savedName;
+        if (savedPhone) phoneInput.value = savedPhone;
+        if (savedContact) {
+            const contactSelect = document.getElementById('contact-method');
+            if (contactSelect) contactSelect.value = savedContact;
+        }
+    } catch (e) {
+        // Ignore localStorage errors
     }
 
     // Загрузка тренеров
