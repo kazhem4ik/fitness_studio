@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 import logging
 import httpx
 import asyncio
-import traceback
 from fastapi import FastAPI
 
 from bot_service.core.config import settings
@@ -17,14 +16,20 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     if settings.TG_BOT_TOKEN:
         tg_api_delete_url = f"https://api.telegram.org/bot{settings.TG_BOT_TOKEN}/deleteWebhook"
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(
+            proxy=settings.TG_PROXY_URL or None,
+            timeout=httpx.Timeout(20.0, connect=10.0),
+        ) as client:
             try:
                 logger.info("Attempting to delete webhook...")
                 delete_resp = await client.post(tg_api_delete_url)
                 logger.info(f"Telegram deleteWebhook response: {delete_resp.text}")
-            except Exception as e:
-                logger.error(f"Failed to delete Telegram webhook: {e}")
-                traceback.print_exc()
+            except httpx.RequestError as e:
+                logger.warning(
+                    "Telegram webhook cleanup is unavailable (%s: %r); polling will retry in background",
+                    type(e).__name__,
+                    e,
+                )
         
         # Запускаем поллинг В ЛЮБОМ СЛУЧАЕ
         logger.info("Starting polling task...")

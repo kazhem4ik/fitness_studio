@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   bot_service:
     build:
       context: ./bot_service
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     volumes:
       - .:/app
       - ./database:/database
@@ -22,8 +20,8 @@ services:
       context: ./planner_service
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "8001:8001"
+    expose:
+      - "8001"
     volumes:
       - .:/app
       - ./database:/database
@@ -40,6 +38,7 @@ services:
       - "127.0.0.1:8080:80"
     volumes:
       - ./landing_page:/usr/share/nginx/html/landing:ro
+      - ./planner_service/static:/usr/share/nginx/html/planner:ro
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - bot_service

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Прямой вход в Fitness Planner</title>
+    <style>
+        :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100svh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: #0a0a0f;
+            color: #fff;
+        }
+        main { width: min(100%, 420px); text-align: center; }
+        .spinner {
+            width: 38px;
+            height: 38px;
+            margin: 0 auto 20px;
+            border: 4px solid rgba(255,255,255,.18);
+            border-top-color: #8b5cf6;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        p { line-height: 1.5; color: #c4b5fd; }
+        pre {
+            display: none;
+            margin-top: 18px;
+            padding: 14px;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+            border-radius: 12px;
+            background: #211b2e;
+            color: #fecaca;
+            text-align: left;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="spinner" aria-hidden="true"></div>
+        <h1>Открываю планировщик…</h1>
+        <p id="status">Проверяю прямое соединение с приложением.</p>
+        <pre id="error"></pre>
+    </main>
+    <script>
+        (function () {
+            var startedAt = Date.now();
+            var controller = new AbortController();
+            var timeout = setTimeout(function () { controller.abort(); }, 15000);
+            var separator = '/clients'.indexOf('?') === -1 ? '?' : '&';
+
+            fetch('/clients' + separator + 'direct=' + startedAt, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+                signal: controller.signal,
+                headers: { 'X-Planner-Direct': '1' }
+            })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.text();
+                })
+                .then(function (html) {
+                    clearTimeout(timeout);
+                    if (html.indexOf('id="login-screen"') === -1) {
+                        throw new Error('Сервер вернул неожиданный документ (' + html.length + ' байт)');
+                    }
+                    document.open();
+                    document.write(html);
+                    document.close();
+                })
+                .catch(function (error) {
+                    clearTimeout(timeout);
+                    document.querySelector('.spinner').style.display = 'none';
+                    document.getElementById('status').textContent =
+                        'Планировщик не ответил за ' + Math.round((Date.now() - startedAt) / 1000) + ' сек.';
+                    var details = document.getElementById('error');
+                    details.style.display = 'block';
+                    details.textContent = String(error && error.message ? error.message : error);
+                });
+        })();
+    </script>
+</body>
+</html>

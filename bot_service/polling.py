@@ -20,19 +20,24 @@ async def start_tg_polling(bot_token: str):
     
     offset = None
     timeout = 20
+    consecutive_failures = 0
     
     logger.info("Starting Telegram long polling...")
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        proxy=settings.TG_PROXY_URL or None,
+        timeout=httpx.Timeout(timeout + 15, connect=10),
+    ) as client:
         while True:
             try:
                 params = {"timeout": timeout}
                 if offset:
                     params["offset"] = offset
                     
-                response = await client.get(url_get_updates, params=params, timeout=timeout + 5)
+                response = await client.get(url_get_updates, params=params)
                 response.raise_for_status()
                 data = response.json()
+                consecutive_failures = 0
                 
                 if data.get("ok"):
                     for update in data.get("result", []):
@@ -227,8 +232,25 @@ async def start_tg_polling(bot_token: str):
                                 from bot_service.modules.admin import send_day_settings
                                 await send_day_settings(chat_id, week_offset, date_str, bot_token, message_id)
             except httpx.RequestError as e:
-                logger.error(f"Network error during polling: {e}")
-                await asyncio.sleep(5)
+                consecutive_failures += 1
+                retry_delay = min(5 * (2 ** min(consecutive_failures - 1, 4)), 60)
+                if consecutive_failures == 1 or consecutive_failures % 5 == 0:
+                    logger.warning(
+                        "Telegram polling is unavailable (%s: %r); retrying in %ss",
+                        type(e).__name__,
+                        e,
+                        retry_delay,
+                    )
+                await asyncio.sleep(retry_delay)
+            except httpx.HTTPStatusError as e:
+                consecutive_failures += 1
+                retry_delay = min(5 * (2 ** min(consecutive_failures - 1, 4)), 60)
+                logger.warning(
+                    "Telegram polling returned HTTP %s; retrying in %ss",
+                    e.response.status_code,
+                    retry_delay,
+                )
+                await asyncio.sleep(retry_delay)
             except Exception as e:
                 logger.error(f"Unexpected error during polling: {e}")
                 await asyncio.sleep(5)

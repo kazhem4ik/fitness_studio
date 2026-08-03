@@ -40,6 +40,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def prevent_stale_planner_assets(request, call_next):
+    """Do not let Safari retain stale planner files between deployments."""
+    response = await call_next(request)
+    if request.url.path.startswith("/clients/static/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # API routes — под /clients/api/
 app.include_router(auth_router, prefix="/clients")
 app.include_router(appointments_router, prefix="/clients")
@@ -53,6 +64,8 @@ app.mount("/clients/static", StaticFiles(directory=str(STATIC_DIR)), name="stati
 
 
 # PWA routes — отдаём index.html для всех frontend-маршрутов
+@app.get("/planner")
+@app.get("/planner/")
 @app.get("/clients")
 @app.get("/clients/")
 @app.get("/clients/login")
@@ -62,8 +75,11 @@ app.mount("/clients/static", StaticFiles(directory=str(STATIC_DIR)), name="stati
 @app.get("/clients/clients")
 @app.get("/clients/finances")
 async def serve_spa():
-    """SPA — всегда отдаём index.html, роутинг на клиенте."""
-    return FileResponse(STATIC_DIR / "index.html")
+    """SPA — /planner is a clean entry point outside the service-worker scope."""
+    return FileResponse(
+        STATIC_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
 
 @app.get("/book")
 async def serve_public_booking():
@@ -80,4 +96,8 @@ async def serve_manifest():
 
 @app.get("/clients/sw.js")
 async def serve_sw():
-    return FileResponse(STATIC_DIR / "sw.js", media_type="application/javascript")
+    return FileResponse(
+        STATIC_DIR / "sw.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )

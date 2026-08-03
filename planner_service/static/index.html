@@ -11,21 +11,22 @@
 
     <title>Клиенты | Фитнес</title>
 
+    <!-- Critical fallback: prevents a raw, fully expanded UI while CSS is loading. -->
+    <style>
+        html, body { margin: 0; min-height: 100%; background: #0a0a0f; color: #f5f5f7; }
+        .screen { display: none; }
+        .screen.active { display: flex; }
+        .hidden { display: none !important; }
+        #login-screen { min-height: 100svh; align-items: center; justify-content: center; padding: 24px; }
+    </style>
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/clients/manifest.json">
     <link rel="apple-touch-icon" href="/clients/static/icons/icon-192.png">
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <!-- Styles -->
-    <link rel="stylesheet" href="/clients/static/css/style.css?v=5">
+    <link rel="stylesheet" href="/clients/static/css/style.css?v=7">
     
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <!-- ==================== LOGIN SCREEN ==================== -->
@@ -589,12 +590,12 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/clients/static/js/api.js?v=4"></script>
-    <script src="/clients/static/js/auth.js?v=4"></script>
-    <script src="/clients/static/js/calendar.js?v=6"></script>
-    <script src="/clients/static/js/appointments.js?v=5"></script>
-    <script src="/clients/static/js/clients.js?v=4"></script>
-    <script src="/clients/static/js/finances.js?v=4"></script>
-    <script src="/clients/static/js/app.js?v=19"></script>
+    <script src="/clients/static/js/api.js?v=6"></script>
+    <script src="/clients/static/js/auth.js?v=6"></script>
+    <script src="/clients/static/js/calendar.js?v=8"></script>
+    <script src="/clients/static/js/appointments.js?v=7"></script>
+    <script src="/clients/static/js/clients.js?v=6"></script>
+    <script src="/clients/static/js/finances.js?v=7"></script>
+    <script src="/clients/static/js/app.js?v=25"></script>
 </body>
 </html>

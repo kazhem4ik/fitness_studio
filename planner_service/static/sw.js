@@ -1,85 +1,24 @@
 /**
- * Service Worker — кэширование ресурсов для офлайн-работы + push-уведомления.
+ * Service Worker — только push-уведомления.
+ *
+ * Запросы намеренно не перехватываются: WebKit на iOS может зависнуть на
+ * повреждённом Cache Storage. Страницы и статика всегда загружаются с сервера.
  */
 
-const CACHE_NAME = 'fitness-planner-v17';
-const STATIC_ASSETS = [
-    '/clients/',
-    '/clients/static/css/style.css',
-    '/clients/static/js/api.js',
-    '/clients/static/js/auth.js',
-    '/clients/static/js/calendar.js',
-    '/clients/static/js/appointments.js',
-    '/clients/static/icons/icon-192.png',
-    '/clients/static/icons/icon-512.png',
-];
-
-// --- Install: кэшируем статику ---
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            return cache.addAll(STATIC_ASSETS);
-        })
-    );
+self.addEventListener('install', () => {
     self.skipWaiting();
 });
 
-// --- Activate: чистим старые кэши ---
+// --- Activate: удаляем все старые офлайн-кэши ---
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then(names => {
-            return Promise.all(
-                names.filter(n => n !== CACHE_NAME).map(n => caches.delete(n))
+        caches.keys().then(async names => {
+            await Promise.all(
+                names
+                    .filter(name => name.startsWith('fitness-planner-'))
+                    .map(name => caches.delete(name))
             );
-        })
-    );
-    self.clients.claim();
-});
-
-// --- Fetch: Network First для API и app.js, Cache First для остальной статики ---
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
-
-    // API запросы — всегда сеть
-    if (url.pathname.includes('/api/')) {
-        event.respondWith(
-            fetch(event.request).catch(() => {
-                return new Response(JSON.stringify({ detail: 'Нет соединения' }), {
-                    status: 503,
-                    headers: { 'Content-Type': 'application/json' },
-                });
-            })
-        );
-        return;
-    }
-
-    // app.js — всегда сеть
-    if (url.pathname.endsWith('app.js')) {
-        event.respondWith(
-            fetch(event.request).catch(() => new Response('console.error("Offline");', { headers: { 'Content-Type': 'application/javascript' } }))
-        );
-        return;
-    }
-    
-    // index.html — всегда сеть
-    if (url.pathname === '/clients/' || url.pathname === '/clients/index.html') {
-        event.respondWith(
-            fetch(event.request).catch(() => caches.match('/clients/'))
-        );
-        return;
-    }
-
-    // Статика — Cache First
-    event.respondWith(
-        caches.match(event.request, { ignoreSearch: true }).then(cached => {
-            return cached || fetch(event.request).then(response => {
-                // Кэшируем новые ресурсы
-                if (response.status === 200) {
-                    const cloned = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
-                }
-                return response;
-            });
+            await self.clients.claim();
         })
     );
 });

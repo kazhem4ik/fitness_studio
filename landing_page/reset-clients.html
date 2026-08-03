@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Восстановление Fitness Planner</title>
+    <style>
+        :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100svh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: #f4eee6;
+            color: #342a24;
+        }
+        main {
+            width: min(100%, 420px);
+            padding: 28px;
+            border-radius: 24px;
+            background: #fff;
+            box-shadow: 0 16px 48px rgba(52, 42, 36, .12);
+            text-align: center;
+        }
+        h1 { margin: 0 0 12px; font-size: 26px; }
+        p { margin: 0 0 22px; line-height: 1.5; color: #67584e; }
+        a {
+            display: block;
+            width: 100%;
+            padding: 15px 18px;
+            border-radius: 14px;
+            background: #7a4d35;
+            color: #fff;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        a[hidden] { display: none; }
+        .error { color: #a12727; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Восстановление планировщика</h1>
+        <p id="status">Удаляю старый кэш Safari…</p>
+        <a id="open-planner" href="/clients" hidden>Открыть планировщик</a>
+    </main>
+    <script>
+        (async () => {
+            const status = document.getElementById('status');
+            const link = document.getElementById('open-planner');
+
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(
+                        registrations
+                            .filter(registration => registration.scope.includes('/clients/'))
+                            .map(registration => registration.unregister())
+                    );
+                }
+
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(
+                        cacheNames
+                            .filter(name => name.startsWith('fitness-planner-'))
+                            .map(name => caches.delete(name))
+                    );
+                }
+
+                status.textContent = 'Старый кэш удалён. Теперь откройте планировщик.';
+                link.href = `/planner?fresh=${Date.now()}`;
+                link.hidden = false;
+            } catch (error) {
+                status.textContent = 'Safari не разрешил автоматическую очистку. Закройте вкладку и попробуйте ещё раз.';
+                status.classList.add('error');
+            }
+        })();
+    </script>
+</body>
+</html>

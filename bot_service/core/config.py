@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     TG_BOT_TOKEN: str = ""
+    TG_PROXY_URL: str | None = None
     MAX_BOT_TOKEN: str | None = None  # Делаем опциональным на время разработки
     WEBHOOK_HOST: str = ""
     ADMIN_CHAT_ID: str = ""

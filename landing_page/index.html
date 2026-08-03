@@ -8,13 +8,7 @@
     <meta name="description"
         content="Приватная фитнес-студия только для девушек в ЖК «Притяжение», Набережные Челны. Персональные тренировки один на один, без спешки и лишних взглядов.">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500;1,6..72,600&display=swap"
-        rel="stylesheet">
-
-    <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/styles.css?v=20260801-1">
 </head>
 
 <body>
@@ -106,6 +100,55 @@
             </div>
         </section>
 
+        <!-- Тренер -->
+        <section class="trainer" aria-labelledby="trainer-title">
+            <div class="trainer-card">
+                <div class="trainer-identity" aria-label="Персональный тренер Рената">
+                    <span class="trainer-initial" aria-hidden="true">Р</span>
+                    <p class="trainer-name">Рената</p>
+                    <p class="trainer-role">Персональный тренер студии</p>
+                </div>
+
+                <div class="trainer-copy">
+                    <p class="eyebrow">Ваш тренер</p>
+                    <h2 class="section-title" id="trainer-title">Внимание — только вам</h2>
+                    <p class="trainer-description">
+                        Перед занятием вы спокойно обсуждаете цель и самочувствие. Во время тренировки Рената
+                        помогает разобрать движения, подобрать комфортную нагрузку и следит за техникой — без
+                        спешки и сравнений с другими.
+                    </p>
+                    <ul class="trainer-facts" aria-label="Формат тренировки">
+                        <li><strong>1 на 1</strong><span>в студии только вы и тренер</span></li>
+                        <li><strong>60 минут</strong><span>на вашу цель и технику</span></li>
+                        <li><strong>Ваш темп</strong><span>нагрузка по самочувствию</span></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Клиентский опыт без выдуманных отзывов -->
+        <section class="reviews" aria-labelledby="reviews-title">
+            <p class="eyebrow eyebrow-center">Комфорт на каждом этапе</p>
+            <h2 class="section-title" id="reviews-title">Что вы почувствуете в персональном формате</h2>
+            <div class="reviews-grid">
+                <article class="review-card">
+                    <span class="review-number" aria-hidden="true">01</span>
+                    <h3>Можно быть собой</h3>
+                    <p>Без посторонних взглядов, неловкости и необходимости подстраиваться под группу.</p>
+                </article>
+                <article class="review-card">
+                    <span class="review-number" aria-hidden="true">02</span>
+                    <h3>Всё становится понятнее</h3>
+                    <p>Можно переспросить, повторить движение и спокойно разобраться в технике.</p>
+                </article>
+                <article class="review-card">
+                    <span class="review-number" aria-hidden="true">03</span>
+                    <h3>Запись без ожидания</h3>
+                    <p>Свободные дни и часы видны сразу — остаётся выбрать подходящее время.</p>
+                </article>
+            </div>
+        </section>
+
         <!-- Как проходит -->
         <section class="process">
             <p class="eyebrow eyebrow-center">Первый визит</p>
@@ -151,6 +194,10 @@
         </footer>
     </div>
 
+    <a href="/book" class="mobile-booking-bar" aria-label="Записаться на тренировку">
+        <span>Записаться</span>
+    </a>
+
     <script>
         // Тень у верхней панели при прокрутке (не трогает ваш существующий main.js)
         const topbar = document.getElementById('topbar');
@@ -158,7 +205,7 @@
             topbar.classList.toggle('is-scrolled', window.scrollY > 12);
         }, { passive: true });
     </script>
-    <script src="assets/js/main.js"></script>
+    <script src="assets/js/main.js?v=20260731-1"></script>
 </body>
 
 </html>

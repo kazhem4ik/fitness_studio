@@ -14,8 +14,26 @@ class FinancesManager {
         this.btnExport = document.getElementById('btn-export-csv');
         
         this.currentPeriod = 'month';
+        this.chartLibraryPromise = null;
         
         this.initEventListeners();
+    }
+
+    async ensureChartLibrary() {
+        if (window.Chart) return true;
+
+        if (!this.chartLibraryPromise) {
+            this.chartLibraryPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/clients/static/vendor/chartjs/chart.umd.min.js?v=4.5.1';
+                script.async = true;
+                script.onload = () => resolve(true);
+                script.onerror = () => reject(new Error('Не удалось загрузить модуль графиков'));
+                document.head.appendChild(script);
+            });
+        }
+
+        return this.chartLibraryPromise;
     }
 
     initEventListeners() {
@@ -102,6 +120,14 @@ class FinancesManager {
                 } else {
                     catContainer.innerHTML = '<p class="empty-hint">Нет данных по расходам</p>';
                 }
+            }
+
+            // Графики нужны только на вкладке финансов, поэтому библиотека
+            // загружается лениво и не задерживает экран входа.
+            try {
+                await this.ensureChartLibrary();
+            } catch (chartError) {
+                console.warn(chartError.message);
             }
 
             // Render Chart

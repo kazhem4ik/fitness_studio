@@ -6,15 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Запись на тренировку</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             /* Новая светлая палитра (как на лендинге) */
             --color-bg: #FDF9F5;
             --color-text: #3E2F29;
-            --color-text-secondary: #8B7369;
-            --color-primary: #9C6C57;
-            --color-primary-hover: #7D5442;
+            --color-text-secondary: #6F5950;
+            --color-primary: #875744;
+            --color-primary-hover: #6B4132;
             --color-surface: #ffffff;
             --color-border: #E8D3C7;
             --radius: 12px;
@@ -26,7 +25,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Golos Text', sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         body {
@@ -110,7 +109,7 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
             margin-top: 12px;
-            min-height: 120px;
+            min-height: 84px;
         }
 
         .slot-btn {
@@ -170,9 +169,18 @@
         }
 
         .loading {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 84px;
             text-align: center;
-            padding: 20px;
+            padding: 18px;
             color: var(--color-text-secondary);
+            background: var(--color-bg);
+            border: 1px dashed var(--color-border);
+            border-radius: 8px;
+            line-height: 1.45;
         }
 
         .message {
@@ -224,6 +232,7 @@
                 <div class="form-group" id="time-group" style="display: none;">
                     <label>Доступное время</label>
                     <div id="slots-container" class="slots-grid">
+                        <div class="loading">Сначала выберите дату — здесь появится свободное время</div>
                     </div>
                 </div>
             </div>

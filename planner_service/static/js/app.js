@@ -120,6 +120,17 @@ window.showGenericModal = function(title, fields, allowDelete = false) {
 
 // --- App Init ---
 document.addEventListener('DOMContentLoaded', async () => {
+    // Icons are decorative. Load their relatively large stylesheet only after
+    // the critical UI has rendered, so mobile Safari cannot block app startup.
+    setTimeout(() => {
+        if (document.querySelector('link[data-fontawesome]')) return;
+        const iconStyles = document.createElement('link');
+        iconStyles.rel = 'stylesheet';
+        iconStyles.href = '/clients/static/vendor/fontawesome/css/all.min.css?v=6.4.0-4';
+        iconStyles.dataset.fontawesome = 'true';
+        document.head.appendChild(iconStyles);
+    }, 1000);
+
     // Инициализируем модули
     Auth.init();
     Calendar.init();
@@ -194,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let swRegistration = null;
     if ('serviceWorker' in navigator) {
         try {
-            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=9', {
+            swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=13', {
                 scope: '/clients/'
             });
             console.log('SW registered:', swRegistration.scope);
