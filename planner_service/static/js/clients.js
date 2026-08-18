@@ -91,6 +91,10 @@ class ClientsManager {
         if (modalCloseBtn) {
             modalCloseBtn.addEventListener('click', () => this.closeClientModal());
         }
+        const modalCloseIcon = document.getElementById('client-modal-close-icon');
+        if (modalCloseIcon) {
+            modalCloseIcon.addEventListener('click', () => this.closeClientModal());
+        }
 
         const clientForm = document.getElementById('client-form');
         if (clientForm) {
@@ -279,8 +283,10 @@ class ClientsManager {
         try {
             if (this.editingClientId) {
                 await API.updateClient(this.editingClientId, { full_name: name, phone: phone, notes: notes });
+                if (window.showToast) window.showToast('Данные клиента обновлены');
             } else {
                 await API.createClient({ full_name: name, phone: phone, notes: notes });
+                if (window.showToast) window.showToast('Клиент добавлен');
             }
             this.closeClientModal();
             this.loadClients();
@@ -305,6 +311,17 @@ class ClientsManager {
             const modal = document.getElementById('client-details-modal');
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
+
+            const btnEdit = document.getElementById('cd-btn-edit');
+            if (btnEdit) {
+                const newBtnEdit = btnEdit.cloneNode(true);
+                btnEdit.parentNode.replaceChild(newBtnEdit, btnEdit);
+                newBtnEdit.addEventListener('click', () => {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = '';
+                    this.showClientModal(details);
+                });
+            }
             
             // Загрузка истории
             const historyContainer = document.getElementById('cd-history');

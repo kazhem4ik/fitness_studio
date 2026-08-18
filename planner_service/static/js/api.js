@@ -170,5 +170,35 @@ const API = {
         deleteTrainer(id) {
             return API.request('DELETE', `/admin/trainers/${id}`);
         }
+    },
+
+    // --- Trainer schedule ---
+    schedule: {
+        suffix(trainerId) {
+            return trainerId ? `?trainer_id=${encodeURIComponent(trainerId)}` : '';
+        },
+        get(trainerId = null) {
+            return API.request('GET', `/schedule${this.suffix(trainerId)}`);
+        },
+        save(data, trainerId = null) {
+            return API.request('PUT', `/schedule${this.suffix(trainerId)}`, data);
+        },
+        getExceptions(dateFrom, dateTo, trainerId = null) {
+            const query = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+            if (trainerId) query.set('trainer_id', trainerId);
+            return API.request('GET', `/schedule/exceptions?${query}`);
+        },
+        saveException(data, trainerId = null) {
+            return API.request('POST', `/schedule/exceptions${this.suffix(trainerId)}`, data);
+        },
+        deleteExceptions(startDate, endDate, confirmConflicts = false, trainerId = null) {
+            const query = new URLSearchParams({
+                start_date: startDate,
+                end_date: endDate,
+                confirm_conflicts: String(confirmConflicts),
+            });
+            if (trainerId) query.set('trainer_id', trainerId);
+            return API.request('DELETE', `/schedule/exceptions?${query}`);
+        }
     }
 };

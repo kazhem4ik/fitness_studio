@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select, delete, func
@@ -14,8 +15,10 @@ from planner_service.models.admin import AdminUser
 from planner_service.models.booking_attempt import BookingAttempt
 from planner_service.models.slot_reservation import SlotReservation
 from planner_service.core.push import send_push_notification
+from planner_service.core.schedule import get_effective_schedule, get_settings
 
 router = APIRouter(tags=["Public Booking"])
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +98,30 @@ async def _purge_old_attempts(db: AsyncSession) -> None:
     )
 
 
+async def _bookable_slot_duration(
+    db: AsyncSession, trainer_id: int, slot_date: date, slot_time
+) -> Optional[int]:
+    """Return duration when the requested start belongs to the effective schedule."""
+    today = datetime.now(MOSCOW_TZ).date()
+    _, _, booking_horizon_days, _ = await get_settings(db, trainer_id)
+    if slot_date < today or slot_date > today + timedelta(days=booking_horizon_days - 1):
+        return None
+    schedule = await get_effective_schedule(db, trainer_id, slot_date)
+    candidate_start = datetime.combine(slot_date, slot_time)
+    candidate_end = candidate_start + timedelta(minutes=schedule.duration_minutes)
+    for interval_start, interval_end in schedule.intervals:
+        interval_start_dt = datetime.combine(slot_date, interval_start)
+        interval_end_dt = datetime.combine(slot_date, interval_end)
+        offset_minutes = int((candidate_start - interval_start_dt).total_seconds() // 60)
+        if (
+            candidate_start >= interval_start_dt
+            and candidate_end <= interval_end_dt
+            and offset_minutes % schedule.slot_step_minutes == 0
+        ):
+            return schedule.duration_minutes
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -109,7 +136,17 @@ async def get_trainers(db: AsyncSession = Depends(get_db)):
         ).order_by(AdminUser.display_name)
     )
     trainers = result.scalars().all()
-    return [{"id": t.id, "display_name": t.display_name} for t in trainers]
+    response = []
+    for trainer in trainers:
+        _, _, booking_horizon_days, _ = await get_settings(db, trainer.id)
+        response.append(
+            {
+                "id": trainer.id,
+                "display_name": trainer.display_name,
+                "booking_horizon_days": booking_horizon_days,
+            }
+        )
+    return response
 
 
 @router.get("/slots", response_model=List[SlotResponse])
@@ -126,14 +163,21 @@ async def get_slots(
     - Слот, удерживаемый текущей сессией, остаётся доступным для неё же.
     """
     # Очищаем просроченные резервации при каждом запросе слотов
+    trainer = await db.get(AdminUser, trainer_id)
+    if not trainer or not trainer.is_active or trainer.role != "trainer":
+        raise HTTPException(status_code=404, detail="Тренер не найден")
+
+    today = datetime.now(MOSCOW_TZ).date()
+    _, _, booking_horizon_days, _ = await get_settings(db, trainer_id)
+    if d < today or d > today + timedelta(days=booking_horizon_days - 1):
+        return []
+
+    schedule = await get_effective_schedule(db, trainer_id, d)
+    if schedule.is_day_off:
+        return []
+
     await _purge_expired_reservations(db)
     await db.commit()
-
-    open_hour, open_minute = map(int, settings.STUDIO_OPEN_TIME.split(':'))
-    close_hour, close_minute = map(int, settings.STUDIO_CLOSE_TIME.split(':'))
-
-    start_time = datetime(d.year, d.month, d.day, open_hour, open_minute)
-    end_time = datetime(d.year, d.month, d.day, close_hour, close_minute)
 
     # Подтверждённые записи
     result = await db.execute(
@@ -164,13 +208,21 @@ async def get_slots(
     for rsv in reservations:
         if rsv.session_id != session_id:
             rsv_start = datetime(d.year, d.month, d.day, rsv.time_start.hour, rsv.time_start.minute)
-            rsv_end = rsv_start + timedelta(minutes=settings.SLOT_DURATION)
+            rsv_end = rsv_start + timedelta(minutes=schedule.duration_minutes)
             occupied_times.append((rsv_start, rsv_end))
 
     slots = []
-    current_time = start_time
-    while current_time + timedelta(minutes=settings.SLOT_DURATION) <= end_time:
-        slot_end = current_time + timedelta(minutes=settings.SLOT_DURATION)
+    candidate_times = []
+    for interval_start, interval_end in schedule.intervals:
+        candidate_time = datetime.combine(d, interval_start)
+        interval_end_time = datetime.combine(d, interval_end)
+        while candidate_time + timedelta(minutes=schedule.duration_minutes) <= interval_end_time:
+            candidate_times.append(candidate_time)
+            candidate_time += timedelta(minutes=schedule.slot_step_minutes)
+
+    now_moscow = datetime.now(MOSCOW_TZ).replace(tzinfo=None)
+    for current_time in candidate_times:
+        slot_end = current_time + timedelta(minutes=schedule.duration_minutes)
         available = True
 
         # Проверка подтверждённых записей и чужих резерваций
@@ -180,13 +232,11 @@ async def get_slots(
                 break
 
         # Прошедшее время
-        if current_time < datetime.now() + timedelta(hours=1):
+        if current_time < now_moscow + timedelta(hours=1):
             available = False
 
         if available:
             slots.append(SlotResponse(time=current_time.strftime("%H:%M"), available=True))
-
-        current_time += timedelta(minutes=15)
 
     return slots
 
@@ -207,8 +257,12 @@ async def reserve_slot(req: ReserveRequest, db: AsyncSession = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный формат даты или времени")
 
+    duration_minutes = await _bookable_slot_duration(db, req.trainer_id, slot_date, slot_time)
+    if duration_minutes is None:
+        return {"ok": False, "reason": "Это время недоступно в графике тренера"}
+
     # Проверяем, нет ли подтверждённой записи на этот слот
-    slot_end_dt = datetime.combine(slot_date, slot_time) + timedelta(minutes=settings.SLOT_DURATION)
+    slot_end_dt = datetime.combine(slot_date, slot_time) + timedelta(minutes=duration_minutes)
     slot_end_time = slot_end_dt.time()
 
     conflict = await db.execute(
@@ -394,11 +448,15 @@ async def create_booking(
     try:
         app_date = datetime.strptime(req.date, "%Y-%m-%d").date()
         start_time = datetime.strptime(req.time, "%H:%M").time()
-        dt_start = datetime.combine(app_date, start_time)
-        dt_end = dt_start + timedelta(minutes=settings.SLOT_DURATION)
-        end_time = dt_end.time()
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный формат даты или времени")
+
+    duration_minutes = await _bookable_slot_duration(db, req.trainer_id, app_date, start_time)
+    if duration_minutes is None:
+        raise HTTPException(status_code=400, detail="Это время недоступно в графике тренера")
+    dt_start = datetime.combine(app_date, start_time)
+    dt_end = dt_start + timedelta(minutes=duration_minutes)
+    end_time = dt_end.time()
 
     conflict = await db.execute(
         select(Appointment).join(Client, Appointment.client_id == Client.id).where(

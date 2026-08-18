@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Fitness Studio backup every day at 03:00 Moscow time
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Europe/Moscow
+Persistent=true
+RandomizedDelaySec=60
+Unit=fitness-studio-backup.service
+
+[Install]
+WantedBy=timers.target

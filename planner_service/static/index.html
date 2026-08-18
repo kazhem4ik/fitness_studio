@@ -25,7 +25,7 @@
     <link rel="apple-touch-icon" href="/clients/static/icons/icon-192.png">
 
     <!-- Styles -->
-    <link rel="stylesheet" href="/clients/static/css/style.css?v=7">
+    <link rel="stylesheet" href="/clients/static/css/style.css?v=9">
     
 </head>
 <body>
@@ -123,6 +123,7 @@
             </button>
                 <button class="tab" data-view="clients">Клиенты</button>
                 <button class="tab" data-view="finances">Финансы</button>
+                <button class="tab" data-view="schedule" id="tab-schedule">График</button>
                 <button class="tab hidden" data-view="admin" id="tab-admin">Админ</button>
             </div>
         </header>
@@ -295,6 +296,118 @@
             </div>
         </div>
 
+        <!-- ===== SCHEDULE VIEW ===== -->
+        <div id="view-schedule" class="view">
+            <div class="schedule-page">
+                <div class="schedule-heading">
+                    <div>
+                        <h2>Мой график</h2>
+                        <p>Настройте рабочую неделю, отдельные даты и доступность записи.</p>
+                    </div>
+                </div>
+
+                <div id="schedule-trainer-group" class="schedule-card hidden">
+                    <label for="schedule-trainer-select">Тренер</label>
+                    <select id="schedule-trainer-select"></select>
+                </div>
+
+                <div class="schedule-card">
+                    <div class="schedule-card-title">
+                        <div>
+                            <h3>Настройки записи</h3>
+                            <p>Эти параметры действуют только для выбранного тренера.</p>
+                        </div>
+                    </div>
+                    <div class="schedule-settings-grid">
+                        <label class="schedule-setting">
+                            <span>Длительность тренировки</span>
+                            <span><input id="schedule-duration" type="number" min="15" max="240" step="5" value="60"> минут</span>
+                        </label>
+                        <label class="schedule-setting">
+                            <span>Запись доступна вперёд</span>
+                            <span><input id="schedule-booking-horizon" type="number" min="1" max="365" step="1" value="14"> дней</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="schedule-card">
+                    <div class="schedule-card-title">
+                        <div>
+                            <h3>Обычная рабочая неделя</h3>
+                            <p>Укажите начало и конец дня. Перерывы добавляются отдельно.</p>
+                        </div>
+                    </div>
+                    <div id="schedule-weekly-list" class="schedule-weekly-list"></div>
+                    <button id="schedule-save" type="button" class="btn-primary schedule-main-action">Сохранить настройки и график</button>
+                </div>
+
+                <div class="schedule-card">
+                    <div class="schedule-card-title">
+                        <div>
+                            <h3>Расписание по датам</h3>
+                            <p>Планируйте особые рабочие дни, выходные и отпуск на три месяца вперёд.</p>
+                        </div>
+                        <button id="schedule-add-exception" type="button" class="btn btn-outline">Настроить диапазон</button>
+                    </div>
+
+                    <div class="schedule-calendar-legend">
+                        <span><i class="schedule-dot schedule-dot-base"></i>Обычный график</span>
+                        <span><i class="schedule-dot schedule-dot-custom"></i>Изменено</span>
+                        <span><i class="schedule-dot schedule-dot-off"></i>Выходной</span>
+                    </div>
+                    <div class="schedule-calendar-toolbar">
+                        <button id="schedule-calendar-prev" type="button" class="schedule-calendar-nav" aria-label="Предыдущий месяц">‹</button>
+                        <button id="schedule-calendar-current" type="button" class="schedule-calendar-title">
+                            <strong id="schedule-calendar-month-title"></strong>
+                            <span>Вернуться к текущему месяцу</span>
+                        </button>
+                        <button id="schedule-calendar-next" type="button" class="schedule-calendar-nav" aria-label="Следующий месяц">›</button>
+                    </div>
+                    <div class="schedule-calendar-weekdays">
+                        <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                    </div>
+                    <div id="schedule-date-calendar" class="schedule-date-calendar"></div>
+
+                    <form id="schedule-exception-form" class="schedule-exception-form hidden">
+                        <div class="schedule-editor-heading">
+                            <div>
+                                <strong id="schedule-exception-title">Настройка даты</strong>
+                                <span>Изменение применяется только к выбранной дате или диапазону.</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="schedule-exception-start">С даты</label>
+                                <input id="schedule-exception-start" type="date" required>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="schedule-exception-end">По дату</label>
+                                <input id="schedule-exception-end" type="date" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="schedule-exception-type">Как работать в эти даты</label>
+                            <select id="schedule-exception-type">
+                                <option value="base">По обычному графику</option>
+                                <option value="day_off">Выходной / отпуск</option>
+                                <option value="custom">Особый рабочий день</option>
+                            </select>
+                        </div>
+                        <div id="schedule-exception-hours" class="hidden">
+                            <div id="schedule-exception-day-plan"></div>
+                        </div>
+                        <div class="modal-actions">
+                            <button id="schedule-cancel-exception" type="button" class="btn btn-outline">Отмена</button>
+                            <button type="submit" class="btn-primary">Сохранить</button>
+                        </div>
+                    </form>
+
+                    <h4 class="schedule-overrides-title">Сохранённые изменения</h4>
+                    <div id="schedule-exceptions-list" class="schedule-exceptions-list"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== ADMIN VIEW ===== -->
         <div id="view-admin" class="view">
             <div class="admin-header" style="padding: 16px; background: var(--surface); border-bottom: 1px solid var(--border);">
@@ -453,10 +566,15 @@
                 <h2 id="cd-title">Карточка клиента</h2>
             </div>
             <div class="modal-body">
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 18px; font-weight: 600;" id="cd-name">Имя</div>
-                    <div style="color: var(--text-secondary); margin-top: 4px;" id="cd-phone">+7 000 000-00-00</div>
-                    <div style="color: var(--text-secondary); margin-top: 8px; font-size: 14px; white-space: pre-wrap;" id="cd-notes"></div>
+                <div class="client-details-identity">
+                    <div class="client-details-primary">
+                        <div class="client-details-name" id="cd-name">Имя</div>
+                        <div class="client-details-phone" id="cd-phone">+7 000 000-00-00</div>
+                        <div class="client-details-notes" id="cd-notes"></div>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-small client-details-edit" id="cd-btn-edit">
+                        <i class="fas fa-pen"></i> Изменить
+                    </button>
                 </div>
                 
                 <div style="background: var(--surface); padding: 16px; border-radius: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
@@ -590,12 +708,13 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/clients/static/js/api.js?v=6"></script>
+    <script src="/clients/static/js/api.js?v=7"></script>
     <script src="/clients/static/js/auth.js?v=6"></script>
-    <script src="/clients/static/js/calendar.js?v=8"></script>
+    <script src="/clients/static/js/calendar.js?v=9"></script>
     <script src="/clients/static/js/appointments.js?v=7"></script>
-    <script src="/clients/static/js/clients.js?v=6"></script>
+    <script src="/clients/static/js/clients.js?v=7"></script>
     <script src="/clients/static/js/finances.js?v=7"></script>
-    <script src="/clients/static/js/app.js?v=25"></script>
+    <script src="/clients/static/js/schedule.js?v=3"></script>
+    <script src="/clients/static/js/app.js?v=27"></script>
 </body>
 </html>

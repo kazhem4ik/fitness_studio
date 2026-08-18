@@ -135,6 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     Auth.init();
     Calendar.init();
     Appointments.init();
+    let swRegistration = null;
 
     // Dropdown menu toggle
     const btnMenu = document.getElementById('btn-menu');
@@ -202,7 +203,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Service Worker registration — делаем сразу, не дожидаясь логина
-    let swRegistration = null;
     if ('serviceWorker' in navigator) {
         try {
             swRegistration = await navigator.serviceWorker.register('/clients/sw.js?v=13', {
@@ -526,6 +526,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const viewId = tab.dataset.view;
             if (viewId === 'admin') {
                 AdminUI.loadTrainers();
+            } else if (viewId === 'schedule' && window.ScheduleUI) {
+                ScheduleUI.open();
             }
         });
     });

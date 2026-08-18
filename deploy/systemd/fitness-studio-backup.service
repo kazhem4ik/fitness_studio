@@ -1,0 +1,16 @@
+[Unit]
+Description=Fitness Studio SQLite backup to Yandex Disk
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=agent
+Group=agent
+WorkingDirectory=/home/agent/fitness_studio
+EnvironmentFile=-/home/agent/.config/fitness-studio-backup.env
+ExecStart=/usr/bin/python3 /home/agent/fitness_studio/scripts/backup_databases.py
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

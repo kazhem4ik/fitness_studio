@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const websiteInput = document.getElementById('client-website'); // honeypot
     const submitBtn = document.getElementById('btn-submit');
     const statusMessage = document.getElementById('status-message');
+    const trainersById = new Map();
 
     let selectedTime = null;
     // Момент когда пользователь кликнул на слот — для honeypot-таймера
@@ -37,6 +38,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     dateInput.min = localISOTime;
     dateInput.value = ''; // Изначально пусто
 
+    function applyBookingHorizon() {
+        const trainer = trainersById.get(String(trainerSelect.value));
+        const configuredDays = Number(trainer?.booking_horizon_days);
+        const horizonDays = Number.isFinite(configuredDays) && configuredDays >= 1
+            ? configuredDays
+            : 14;
+        const maxDate = new Date(today);
+        maxDate.setDate(maxDate.getDate() + Math.max(1, horizonDays) - 1);
+        dateInput.max = new Date(maxDate.getTime() - tzOffset).toISOString().slice(0, 10);
+        if (dateInput.value && dateInput.value > dateInput.max) {
+            dateInput.value = '';
+            selectedTime = null;
+            slotsContainer.innerHTML = '<div class="loading">Выберите дату в доступном периоде</div>';
+        }
+    }
+
     // Автозаполнение из localStorage
     try {
         const savedName = localStorage.getItem('saved_client_name');
@@ -58,12 +75,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await fetch('/api/public/trainers');
         if (!response.ok) throw new Error();
         const trainers = await response.json();
+        trainers.forEach(trainer => trainersById.set(String(trainer.id), trainer));
 
         trainerSelect.innerHTML = '<option value="" disabled selected>Выберите тренера</option>' +
             trainers.map(t => `<option value="${t.id}">${t.display_name}</option>`).join('');
 
         if (trainers.length === 1) {
             trainerSelect.value = trainers[0].id;
+            applyBookingHorizon();
             document.getElementById('date-group').style.display = 'block';
             document.getElementById('time-group').style.display = 'block';
         }
@@ -73,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Слушатели
     trainerSelect.addEventListener('change', () => {
+        applyBookingHorizon();
         document.getElementById('date-group').style.display = 'block';
         document.getElementById('time-group').style.display = 'block';
         if (dateInput.value) {

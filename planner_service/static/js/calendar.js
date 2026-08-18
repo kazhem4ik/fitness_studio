@@ -333,6 +333,11 @@ const Calendar = {
             v.classList.toggle('active', v.id === `view-${view}`);
         });
 
+        const fab = document.getElementById('fab-add');
+        if (fab) {
+            fab.classList.toggle('hidden', view === 'schedule' || view === 'admin');
+        }
+
         this.render();
     },
 
