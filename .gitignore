@@ -60,3 +60,4 @@ Thumbs.db
 *.swo
 *~
 documentation/anti_bot_protection.md
+/ssh
