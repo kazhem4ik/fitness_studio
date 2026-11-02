@@ -68,15 +68,34 @@ const Calendar = {
     updateHeader() {
         const headerTitle = document.getElementById('header-title');
         const headerDate = document.getElementById('header-date');
+        const btnToday = document.getElementById('btn-today');
         const today = new Date();
 
-        if (this.isToday(this.currentDate)) {
-            headerTitle.textContent = 'Сегодня';
+        if (this.currentView === 'clients') {
+            headerTitle.textContent = 'Клиенты';
+            headerDate.textContent = `${today.getDate()} ${this.MONTHS_GEN[today.getMonth()]} ${today.getFullYear()}`;
+            if (btnToday) btnToday.classList.add('hidden');
+        } else if (this.currentView === 'finances') {
+            headerTitle.textContent = 'Финансы';
+            headerDate.textContent = `${today.getDate()} ${this.MONTHS_GEN[today.getMonth()]} ${today.getFullYear()}`;
+            if (btnToday) btnToday.classList.add('hidden');
+        } else if (this.currentView === 'schedule') {
+            headerTitle.textContent = 'График';
+            headerDate.textContent = `${today.getDate()} ${this.MONTHS_GEN[today.getMonth()]} ${today.getFullYear()}`;
+            if (btnToday) btnToday.classList.add('hidden');
+        } else if (this.currentView === 'admin') {
+            headerTitle.textContent = 'Админ';
+            headerDate.textContent = 'Управление';
+            if (btnToday) btnToday.classList.add('hidden');
         } else {
-            headerTitle.textContent = this.DAYS_FULL[this.getDayOfWeek(this.currentDate)];
+            if (btnToday) btnToday.classList.remove('hidden');
+            if (this.isToday(this.currentDate)) {
+                headerTitle.textContent = 'Сегодня';
+            } else {
+                headerTitle.textContent = this.DAYS_FULL[this.getDayOfWeek(this.currentDate)];
+            }
+            headerDate.textContent = `${today.getDate()} ${this.MONTHS_GEN[today.getMonth()]} ${today.getFullYear()}`;
         }
-
-        headerDate.textContent = `${today.getDate()} ${this.MONTHS_GEN[today.getMonth()]} ${today.getFullYear()}`;
     },
 
     // =========================================================
@@ -335,7 +354,7 @@ const Calendar = {
 
         const fab = document.getElementById('fab-add');
         if (fab) {
-            fab.classList.toggle('hidden', view === 'schedule' || view === 'admin');
+            fab.classList.toggle('hidden', view === 'schedule' || view === 'admin' || view === 'clients' || view === 'finances');
         }
 
         this.render();

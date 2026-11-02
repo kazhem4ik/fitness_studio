@@ -32,7 +32,7 @@ class ClientsManager {
             trashBtn.addEventListener('click', () => {
                 this.isTrashMode = !this.isTrashMode;
                 if (this.isTrashMode) this.isBlockedMode = false; // сбрасываем другой режим
-                trashBtn.style.color = this.isTrashMode ? 'var(--primary)' : 'var(--text-secondary)';
+                trashBtn.style.color = this.isTrashMode ? 'var(--accent-purple)' : 'var(--text-secondary)';
                 const blockedBtn = document.getElementById('btn-clients-blocked');
                 if (blockedBtn) blockedBtn.style.color = 'var(--text-secondary)';
 
@@ -171,13 +171,17 @@ class ClientsManager {
         this.listContainer.innerHTML = '';
 
         const query = searchQuery.toLowerCase();
-        const filtered = this.clients.filter(c => 
-            c.full_name.toLowerCase().includes(query) || 
+        const filtered = this.clients.filter(c =>
+            c.full_name.toLowerCase().includes(query) ||
             (c.phone && c.phone.includes(query))
         );
 
         if (filtered.length === 0) {
-            this.listContainer.innerHTML = '<div class="empty-state">Клиенты не найдены</div>';
+            this.listContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">👥</div>
+                    <p class="empty-text">Клиенты не найдены</p>
+                </div>`;
             return;
         }
 
@@ -185,36 +189,48 @@ class ClientsManager {
             const card = document.createElement('div');
             card.className = 'client-card';
 
+            const avatarClass = this._avatarVariant(client.full_name);
+            const initials = this._initials(client.full_name);
+
             if (this.isBlockedMode) {
-                // Режим заблокированных: показываем с кнопкой разблокировки
+                card.classList.add('client-blocked');
                 card.innerHTML = `
-                    <div class="client-info">
-                        <h3 class="client-name" style="color: var(--color-danger);">${client.full_name}</h3>
-                        <p class="client-phone">${client.phone || 'Нет номера'}</p>
+                    <div class="client-avatar ${avatarClass}">${initials}</div>
+                    <div class="client-card-body">
+                        <div class="client-name">${client.full_name}</div>
+                        <div class="client-phone">${client.phone || 'Нет номера'}</div>
+                        <button class="btn btn-outline btn-small client-restore-btn"
+                            style="border-color: var(--accent-purple); color: var(--accent-purple);"
+                            onclick="event.stopPropagation(); window.clientsManager.unblockClient(${client.id})">Разблокировать</button>
                     </div>
-                    <div class="client-balance">
-                        <span class="balance-badge balance-empty">Заблокирован</span>
-                    </div>
-                `;
-                card.style.opacity = '0.8';
-                card.innerHTML += `<div style="margin-top: 8px; text-align: center;"><button class="btn-outline btn-small" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="event.stopPropagation(); window.clientsManager.unblockClient(${client.id})">Разблокировать</button></div>`;
+                    <div class="client-card-meta">
+                        <span class="balance-badge balance-empty">Заблок</span>
+                    </div>`;
             } else {
-                // Обычный режим
-                const balanceClass = client.sessions_balance > 0 ? 'balance-positive' : 'balance-empty';
+                const balance = client.sessions_balance || 0;
+                let badgeClass = balance > 2 ? 'balance-positive' : balance > 0 ? 'balance-low' : 'balance-empty';
+                const badgeText = balance > 0 ? `${balance} зан.` : '0 зан.';
+
                 card.innerHTML = `
-                    <div class="client-info">
-                        <h3 class="client-name">${client.full_name}</h3>
-                        <p class="client-phone">${client.phone || 'Нет номера'}</p>
+                    <div class="client-avatar ${avatarClass}">${initials}</div>
+                    <div class="client-card-body">
+                        <div class="client-name">${client.full_name}</div>
+                        <div class="client-phone">${client.phone || 'Нет номера'}</div>
                     </div>
-                    <div class="client-balance">
-                        <span class="balance-badge ${balanceClass}">
-                            ${client.sessions_balance} занятий
-                        </span>
+                    <div class="client-card-meta">
+                        <span class="balance-badge ${badgeClass}">${badgeText}</span>
                     </div>
-                `;
+                    <svg class="client-card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="9 6 15 12 9 18"/>
+                    </svg>`;
+
                 if (this.isTrashMode) {
-                    card.style.opacity = '0.7';
-                    card.innerHTML += `<div style="margin-top: 8px; text-align: center;"><button class="btn-outline btn-small" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="event.stopPropagation(); window.clientsManager.restoreClient(${client.id})">Восстановить</button></div>`;
+                    card.classList.add('client-deleted');
+                    card.querySelector('.client-card-meta').innerHTML += `
+                        <button class="btn btn-outline btn-small"
+                            style="border-color: var(--accent-purple); color: var(--accent-purple); margin-top: 4px; font-size: 11px; padding: 4px 8px;"
+                            onclick="event.stopPropagation(); window.clientsManager.restoreClient(${client.id})">Восстановить</button>`;
+                    // Remove click-to-detail in trash mode
                 } else {
                     card.addEventListener('click', () => this.showClientDetails(client.id));
                 }
@@ -223,6 +239,38 @@ class ClientsManager {
             this.listContainer.appendChild(card);
         });
 
+        // Update stats when not in trash/blocked mode
+        if (!this.isTrashMode && !this.isBlockedMode) {
+            this._updateStats(this.clients);
+        }
+    }
+
+    /** Compute avatar initials (up to 2 letters) */
+    _initials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return name.slice(0, 2).toUpperCase();
+    }
+
+    /** Pick one of 6 avatar colour variants based on name hash */
+    _avatarVariant(name) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+        return 'av-' + ((Math.abs(hash) % 6) + 1);
+    }
+
+    /** Update stats bar */
+    _updateStats(clients) {
+        const total = clients.length;
+        const active = clients.filter(c => (c.sessions_balance || 0) > 0).length;
+        const expiring = clients.filter(c => { const b = c.sessions_balance || 0; return b === 1 || b === 2; }).length;
+
+        const elTotal = document.getElementById('stat-total');
+        const elActive = document.getElementById('stat-active');
+        const elExpiring = document.getElementById('stat-expiring');
+        if (elTotal) elTotal.textContent = total;
+        if (elActive) elActive.textContent = active;
+        if (elExpiring) elExpiring.textContent = expiring;
     }
 
     showClientModal(client = null) {
@@ -306,8 +354,65 @@ class ClientsManager {
             document.getElementById('cd-name').textContent = details.full_name;
             document.getElementById('cd-phone').textContent = details.phone || 'Нет номера';
             document.getElementById('cd-notes').textContent = details.notes || '';
-            document.getElementById('cd-balance').textContent = details.sessions_balance || 0;
+            const balanceEl = document.getElementById('cd-balance');
+            const balance = details.sessions_balance || 0;
+            balanceEl.textContent = balance;
+            balanceEl.className = 'client-balance-value' + (balance === 0 ? ' balance-zero' : '');
+
+            // Set avatar
+            const avatarEl = document.getElementById('cd-avatar');
+            if (avatarEl) {
+                avatarEl.textContent = this._initials(details.full_name);
+                avatarEl.className = 'client-details-avatar ' + this._avatarVariant(details.full_name);
+            }
             
+                        // Загрузка истории
+            const historyContainer = document.getElementById('cd-history');
+            if (historyContainer) {
+                historyContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px; padding: 12px 0;">Загрузка...</div>';
+                API.getClientAppointments(clientId).then(history => {
+                    if (!history || history.length === 0) {
+                        historyContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px; padding: 12px 0;">Записей пока нет</div>';
+                        return;
+                    }
+                    historyContainer.innerHTML = '';
+                    history.forEach(item => {
+                        let dotClass = 'dot-planned';
+                        let statusText = 'Запланировано';
+                        let statusColor = 'var(--text-secondary)';
+
+                        if (item.is_cancelled) {
+                            dotClass = 'dot-cancelled';
+                            statusText = 'Отменено';
+                            statusColor = 'var(--text-secondary)';
+                        } else if (item.is_no_show) {
+                            dotClass = 'dot-no-show';
+                            statusText = 'Не пришёл';
+                            statusColor = 'var(--color-danger)';
+                        } else if (item.is_attended) {
+                            dotClass = 'dot-attended';
+                            statusText = 'Пришёл';
+                            statusColor = 'var(--color-success)';
+                        }
+
+                        const el = document.createElement('div');
+                        el.className = 'client-history-item';
+                        if (item.is_cancelled) el.style.opacity = '0.5';
+                        el.innerHTML = `
+                            <div class="client-history-dot ${dotClass}"></div>
+                            <div class="client-history-info">
+                                <div class="client-history-date">${item.date} ${item.time_start}</div>
+                                <div class="client-history-type">${item.training_type || 'Тренировка'}</div>
+                            </div>
+                            <div class="client-history-status" style="color: ${statusColor};">${statusText}</div>`;
+                        historyContainer.appendChild(el);
+                    });
+                }).catch(err => {
+                    console.error('Ошибка загрузки истории:', err);
+                    historyContainer.innerHTML = '<div style="color: var(--color-danger); font-size: 14px; padding: 12px 0;">Ошибка загрузки</div>';
+                });
+            }
+
             const modal = document.getElementById('client-details-modal');
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
@@ -322,49 +427,7 @@ class ClientsManager {
                     this.showClientModal(details);
                 });
             }
-            
-            // Загрузка истории
-            const historyContainer = document.getElementById('cd-history');
-            if (historyContainer) {
-                historyContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px;">Загрузка...</div>';
-                API.getClientAppointments(clientId).then(history => {
-                    if (!history || history.length === 0) {
-                        historyContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 14px;">Записей пока нет</div>';
-                        return;
-                    }
-                    historyContainer.innerHTML = '';
-                    history.forEach(item => {
-                        let statusHtml = '';
-                        let opacity = '1';
-                        
-                        if (item.is_cancelled) {
-                            statusHtml = '<span style="color: var(--text-secondary); font-size: 12px; margin-left: auto;">Отменено</span>';
-                            opacity = '0.6';
-                        } else if (item.is_no_show) {
-                            statusHtml = '<span style="color: #ef4444; font-size: 12px; margin-left: auto;">Не пришёл</span>';
-                        } else if (item.is_attended) {
-                            statusHtml = '<span style="color: #22c55e; font-size: 12px; margin-left: auto;">Пришёл</span>';
-                        } else {
-                            statusHtml = '<span style="color: var(--text-secondary); font-size: 12px; margin-left: auto;">Запланировано</span>';
-                        }
-                        
-                        const el = document.createElement('div');
-                        el.style = `display: flex; align-items: center; padding: 10px; background: var(--surface); border-radius: 8px; opacity: ${opacity};`;
-                        el.innerHTML = `
-                            <div>
-                                <div style="font-weight: 500; font-size: 14px;">${item.date} ${item.time_start}</div>
-                                <div style="font-size: 12px; color: var(--text-secondary);">${item.training_type || 'Тренировка'}</div>
-                            </div>
-                            ${statusHtml}
-                        `;
-                        historyContainer.appendChild(el);
-                    });
-                }).catch(err => {
-                    console.error("Ошибка загрузки истории:", err);
-                    historyContainer.innerHTML = '<div style="color: #ef4444; font-size: 14px;">Ошибка загрузки</div>';
-                });
-            }
-            
+
             const btnRemove = document.getElementById('cd-btn-remove-session');
             if (btnRemove) {
                 const newBtnRemove = btnRemove.cloneNode(true);
@@ -381,7 +444,7 @@ class ClientsManager {
                             await API.updateClient(details.id, { sessions_balance: newBalance });
                             document.getElementById('cd-balance').textContent = newBalance;
                             details.sessions_balance = newBalance;
-                            this.render();
+                            this.renderList();
                             if (window.showToast) window.showToast("Занятие успешно списано!");
                         } catch (err) {
                             console.error(err);
@@ -430,10 +493,13 @@ class ClientsManager {
                 }
             });
             
-            document.getElementById('cd-btn-close').onclick = () => {
+            const closeDetailsModal = () => {
                 modal.classList.add('hidden');
                 document.body.style.overflow = '';
             };
+            document.getElementById('cd-btn-close').onclick = closeDetailsModal;
+            const cdCloseIcon = document.getElementById('cd-modal-close-icon');
+            if (cdCloseIcon) cdCloseIcon.onclick = closeDetailsModal;
             
             const btnDelete = document.getElementById('cd-btn-delete');
             if (btnDelete) {
@@ -463,8 +529,8 @@ class ClientsManager {
 
                     if (details.is_blocked) {
                         btnBlock.textContent = 'Разблокировать';
-                        btnBlock.style.borderColor = 'var(--primary)';
-                        btnBlock.style.color = 'var(--primary)';
+                        btnBlock.style.borderColor = 'var(--accent-purple)';
+                        btnBlock.style.color = 'var(--accent-purple)';
                     } else {
                         btnBlock.textContent = 'Заблокировать';
                         btnBlock.style.borderColor = 'var(--color-danger)';
