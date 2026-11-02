@@ -1,13 +1,47 @@
-# Environments
+# ==========================================
+# Environments & Secrets
+# ==========================================
 .env
+.env.*
+!.env.example
 .venv
-env/
 venv/
+env/
 ENV/
-env.bak/
-venv.bak/
+*.env.bak
 
-# Python
+# SSH, Private Keys & Certificates
+*.pem
+*.key
+*.pub
+*.ppk
+*.crt
+*.der
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+known_hosts*
+ssh/
+/ssh
+credentials.json
+
+# ==========================================
+# Databases & Dumps
+# ==========================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.sql
+*.dump
+database/*.db
+database/*.sqlite*
+
+# ==========================================
+# Python Artifacts & Caches
+# ==========================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -30,21 +64,25 @@ share/python-wheels/
 .installed.cfg
 *.egg
 
-# Pytest / Coverage
+# Testing & Coverage
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# Databases
-*.sqlite3
-*.db
-*.db-shm
-*.db-wal
+# ==========================================
+# Logs & Backups
+# ==========================================
+*.log
+*.bak
+*.backup
+*.old
+*.orig
 
-# Docker
-# .dockerignore
-
-# OS generated files
+# ==========================================
+# Operating System & IDEs
+# ==========================================
 .DS_Store
 .DS_Store?
 ._*
@@ -52,12 +90,8 @@ htmlcov/
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# IDEs and Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-documentation/anti_bot_protection.md
-/ssh
