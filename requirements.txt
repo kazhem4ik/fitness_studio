@@ -2,7 +2,8 @@ fastapi
 uvicorn
 httpx
 pydantic-settings
-sqlalchemy
+sqlalchemy[asyncio]
+greenlet
 aiosqlite
 bcrypt
 PyJWT>=2.15.0
