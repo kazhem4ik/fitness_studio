@@ -5,5 +5,8 @@ pydantic-settings
 sqlalchemy
 aiosqlite
 bcrypt
-PyJWT
+PyJWT>=2.15.0
+aiohttp>=3.14.4
+urllib3>=2.8.0
+certifi>=2026.10.18
 pywebpush
