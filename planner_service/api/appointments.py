@@ -1,4 +1,5 @@
 from datetime import date as dt_date, time as dt_time, datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,6 +15,8 @@ from planner_service.models.client import Client
 from planner_service.models.package import Package
 
 router = APIRouter(prefix="/api/appointments", tags=["appointments"])
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 COOKIE_NAME = "planner_token"
 
@@ -162,8 +165,8 @@ async def get_appointments(
     result = await db.execute(query)
     appointments = result.scalars().all()
 
-    # Auto-deduction for passed appointments
-    local_now = datetime.now()
+    # Auto-deduction for passed appointments (use Moscow time, server runs in UTC)
+    local_now = datetime.now(MOSCOW_TZ).replace(tzinfo=None)
     changed = False
     for appt in appointments:
         if not appt.is_attended and not appt.is_cancelled and not appt.is_no_show:
@@ -203,12 +206,13 @@ async def create_appointment(
         )
 
     # Ищем клиента этого тренера по имени
+    # Используем scalars().first() вместо scalar_one_or_none() на случай дубликатов в БД
     client_query = select(Client).where(
         Client.full_name == data.client_name,
         Client.trainer_id == trainer_id,
     )
     client_result = await db.execute(client_query)
-    client = client_result.scalar_one_or_none()
+    client = client_result.scalars().first()
     
     if client and client.deleted_at is not None:
         raise HTTPException(
